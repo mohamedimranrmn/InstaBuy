@@ -40,7 +40,6 @@ public class ProductController {
         );
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','CUSTOMER')")
     @PatchMapping("/{id}/reduce")
     public ResponseEntity<Void> reduceStock(
             @RequestHeader("X-Internal-Key") String key,
@@ -52,7 +51,6 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     @PatchMapping("/{id}/increase")
     public ResponseEntity<Void> increaseStock(
             @RequestHeader("X-Internal-Key") String key,

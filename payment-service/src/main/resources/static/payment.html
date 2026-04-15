@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pay Now</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+
+<h2>Purchase Payment</h2>
+<button onclick="payNow()">Pay Now</button>
+
+<script>
+    async function payNow() {
+        const params = new URLSearchParams(window.location.search);
+        const orderId = params.get("orderId");
+
+        console.log("ORDER ID:", orderId);
+
+        if (!orderId) {
+            alert("Order ID missing in URL!");
+            return;
+        }
+
+        try {
+            const response = await fetch("http://localhost:8083/payments/create-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderId: Number(orderId) }) // ensure number
+            });
+
+            if (!response.ok) {
+                throw new Error("Create order failed");
+            }
+
+            const data = await response.json();
+
+            console.log("Backend response:", data);
+
+            var options = {
+                key: "rzp_test_ScylNDSHyd9V2p",
+                amount: data.amount * 100,
+                currency: "INR",
+                name: "InstaBuy",
+                description: "Order Payment",
+                order_id: data.transactionId,
+
+                handler: async function (response) {
+
+                    console.log("Payment success response:", response);
+
+                    const confirmRes = await fetch("http://localhost:8083/payments/confirm", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            razorpayOrderId: data.transactionId,
+                            razorpayPaymentId: response.razorpay_payment_id,
+                            razorpaySignature: response.razorpay_signature,
+                            orderId: Number(orderId)
+                        })
+                    });
+
+                    if (!confirmRes.ok) {
+                        throw new Error("Payment confirmation failed");
+                    }
+
+                    alert("✅ Payment successful!");
+                },
+
+                modal: {
+                    ondismiss: async function () {
+                        console.log("Payment cancelled / failed");
+                        await fetch("http://localhost:8083/payments/fail", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                orderId: Number(orderId)
+                            })
+                        });
+                        alert("❌ Payment failed, order cancelled");
+                    }
+                },
+
+                prefill: {
+                    name: "Test User",
+                    email: "test@example.com"
+                },
+
+                theme: {
+                    color: "#3399cc"
+                }
+            };
+
+            new Razorpay(options).open();
+
+        } catch (error) {
+            console.error("ERROR:", error);
+            alert("Something went wrong: " + error.message);
+        }
+    }
+</script>
+
+</body>
+</html>
