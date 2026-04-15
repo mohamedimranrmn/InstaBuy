@@ -1,7 +1,6 @@
 package com.mphasis.orderservice.service;
 
 import com.mphasis.orderservice.client.InventoryClient;
-import com.mphasis.orderservice.client.PaymentClient;
 import com.mphasis.orderservice.client.UserClient;
 import com.mphasis.orderservice.dto.*;
 import com.mphasis.orderservice.exception.*;
@@ -9,6 +8,7 @@ import com.mphasis.orderservice.model.*;
 import com.mphasis.orderservice.dao.OrderRepository;
 import com.mphasis.orderservice.saga.OrderStateMachine;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -30,22 +30,22 @@ public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
+    @Value("${internal.api-key}")
+    private String internalApiKey;
+
     private final OrderRepository repo;
     private final InventoryClient inventory;
     private final OrderStateMachine stateMachine;
     private final UserClient userClient;
-    private final PaymentClient paymentClient;
 
     public OrderService(OrderRepository repo,
                         InventoryClient inventory,
                         OrderStateMachine stateMachine,
-                        UserClient userClient,
-                        PaymentClient paymentClient) {
+                        UserClient userClient) {
         this.repo = repo;
         this.inventory = inventory;
         this.stateMachine = stateMachine;
         this.userClient = userClient;
-        this.paymentClient = paymentClient;
     }
 
     @Transactional
@@ -66,7 +66,6 @@ public class OrderService {
         repo.save(order);
 
         List<OrderItem> reservedItems = new ArrayList<>();
-        boolean paymentDone = false;
 
         try {
             for (OrderItem item : items) {
@@ -77,27 +76,12 @@ public class OrderService {
             transition(order, OrderStatus.INVENTORY_RESERVED);
             transition(order, OrderStatus.PAYMENT_PENDING);
 
-            PaymentResponse response = callPayment(order);
+            log.info("Order {} is now PAYMENT_PENDING. Awaiting payment.", order.getOrderId());
 
-            log.info("Payment response → status={}, message={}",
-                    response.getStatus(),
-                    response.getMessage());
-
-            if (!"SUCCESS".equalsIgnoreCase(response.getStatus())) {
-                throw new PaymentException("Payment failed: " + response.getMessage());
-            }
-            paymentDone = true;
-            transition(order, OrderStatus.COMPLETED);
         } catch (Exception e) {
             log.error("Order failed for orderId={} reason={}", order.getOrderId(), e.getMessage());
+
             rollbackInventory(reservedItems);
-            if (paymentDone) {
-                try {
-                    reversePayment(order.getOrderId());
-                } catch (Exception ex) {
-                    log.error("CRITICAL: Payment reversal failed for order {}", order.getOrderId());
-                }
-            }
 
             order.setFailureReason(e.getMessage());
             transition(order, OrderStatus.FAILED);
@@ -106,32 +90,28 @@ public class OrderService {
         return mapToResponse(repo.save(order));
     }
 
-    @Retry(name = "paymentRetry")
-    @CircuitBreaker(name = "paymentCB", fallbackMethod = "paymentFallback")
-    public PaymentResponse callPayment(Order order) {
+    // 🔥 NEW METHOD — called after payment confirmation
+    @Transactional
+    public void confirmOrderPayment(Long orderId) {
 
-        return paymentClient.processPayment(
-                new PaymentRequest(
-                        order.getOrderId(),
-                        order.getUserId(),
-                        order.getTotalAmount()
-                )
-        );
-    }
+        Order order = repo.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
 
-    public PaymentResponse paymentFallback(Order order, Throwable t) {
-        log.error("Payment service fallback triggered: {}", t.getMessage());
-        throw new PaymentException("Payment service unavailable");
-    }
+        if (order.getStatus() != OrderStatus.PAYMENT_PENDING) {
+            throw new RuntimeException("Invalid state for payment confirmation");
+        }
 
-    public void reversePayment(Long orderId) {
-        paymentClient.reversePayment(orderId);
+        transition(order, OrderStatus.COMPLETED);
+        repo.save(order);
+
+        log.info("Order {} marked COMPLETED after payment", orderId);
     }
 
     @Retry(name = "inventoryRetry")
     @CircuitBreaker(name = "inventoryCB", fallbackMethod = "inventoryFallback")
     public void callInventory(OrderItem item) {
         inventory.reduceStock(
+                internalApiKey,
                 item.getProductId(),
                 new InventoryClient.StockRequest(item.getQuantity())
         );
@@ -146,11 +126,13 @@ public class OrderService {
         for (OrderItem item : items) {
             try {
                 inventory.increaseStock(
+                        internalApiKey,
                         item.getProductId(),
                         new InventoryClient.StockRequest(item.getQuantity())
                 );
             } catch (Exception ex) {
-                log.error("CRITICAL: Inventory rollback failed for product {}", item.getProductId());
+                log.error("CRITICAL: Inventory rollback failed for product {}",
+                        item.getProductId(), ex);
             }
         }
     }
@@ -162,6 +144,7 @@ public class OrderService {
             if (product.getAvailableQuantity() < i.getQuantity()) {
                 throw new InventoryException("Insufficient stock for product " + i.getProductId());
             }
+
             OrderItem item = new OrderItem();
             item.setOrder(order);
             item.setProductId(i.getProductId());
@@ -196,7 +179,6 @@ public class OrderService {
     }
 
     private OrderResponse mapToResponse(Order order) {
-
         List<OrderItemResponse> items = order.getItems().stream()
                 .map(i -> new OrderItemResponse(
                         i.getProductId(),
@@ -216,12 +198,36 @@ public class OrderService {
         );
     }
 
-    public List<Order> getAllOrders() {
-        return repo.findAll();
+    public List<OrderResponse> getAllOrdersResponse() {
+        return repo.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
-    public Order getOrderById(Long id) {
-        return repo.findById(id)
-                .orElseThrow(() -> new OrderNotFoundException(id));
+    public OrderResponse getOrderResponseById(Long id) {
+        return mapToResponse(
+                repo.findById(id)
+                        .orElseThrow(() -> new RuntimeException("Order not found"))
+        );
+    }
+
+    @Transactional
+    public void failOrderPayment(Long orderId) {
+
+        Order order = repo.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (order.getStatus() != OrderStatus.PAYMENT_PENDING) {
+            throw new RuntimeException("Invalid state for failure");
+        }
+        rollbackInventory(order.getItems());
+
+        order.setFailureReason("Payment failed");
+        transition(order, OrderStatus.FAILED);
+
+        repo.save(order);
+
+        log.info("Order {} marked FAILED and inventory rolled back", orderId);
     }
 }

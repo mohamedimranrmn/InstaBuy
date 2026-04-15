@@ -2,9 +2,10 @@ package com.mphasis.orderservice.controller;
 
 import com.mphasis.orderservice.dto.OrderRequest;
 import com.mphasis.orderservice.dto.OrderResponse;
-import com.mphasis.orderservice.model.Order;
 import com.mphasis.orderservice.service.OrderService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +15,8 @@ import java.util.List;
 @RequestMapping("/orders")
 public class OrderController {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
+
     private final OrderService service;
 
     public OrderController(OrderService service) {
@@ -22,17 +25,39 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderRequest request) {
-        System.out.println("CONTROLLER HIT SUCCESSFULLY");
+
+        log.info("Creating order...");
+
         return ResponseEntity.ok(service.createOrder(request));
     }
 
+    @PostMapping("/confirm/{orderId}")
+    public ResponseEntity<String> confirmOrder(@PathVariable Long orderId) {
+
+        log.info("Confirming order after payment: {}", orderId);
+
+        service.confirmOrderPayment(orderId);
+
+        return ResponseEntity.ok("Order marked as COMPLETED");
+    }
+
     @GetMapping
-    public ResponseEntity<List<Order>> getAllOrders() {
-        return ResponseEntity.ok(service.getAllOrders());
+    public ResponseEntity<List<OrderResponse>> getAllOrders() {
+        log.info("Fetching all orders");
+        return ResponseEntity.ok(service.getAllOrdersResponse());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getOrderById(id));
+    public ResponseEntity<OrderResponse> getOrderById(@PathVariable Long id) {
+
+        log.info("Fetching order {}", id);
+
+        return ResponseEntity.ok(service.getOrderResponseById(id));
+    }
+
+    @PostMapping("/fail/{orderId}")
+    public ResponseEntity<Void> failOrder(@PathVariable Long orderId) {
+        service.failOrderPayment(orderId);
+        return ResponseEntity.ok().build();
     }
 }

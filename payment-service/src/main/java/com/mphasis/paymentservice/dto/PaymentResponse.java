@@ -5,6 +5,7 @@ public class PaymentResponse {
     private String status;
     private String transactionId;
     private String message;
+    private double amount;
 
     public PaymentResponse() {}
 
@@ -12,6 +13,13 @@ public class PaymentResponse {
         this.status = status;
         this.transactionId = transactionId;
         this.message = message;
+    }
+
+    public PaymentResponse(String status, String transactionId, String message, double amount) {
+        this.status = status;
+        this.transactionId = transactionId;
+        this.message = message;
+        this.amount = amount;
     }
 
     public String getStatus() {
@@ -26,6 +34,10 @@ public class PaymentResponse {
         return message;
     }
 
+    public double getAmount() {
+        return amount;
+    }
+
     public void setStatus(String status) {
         this.status = status;
     }
@@ -36,5 +48,9 @@ public class PaymentResponse {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public void setAmount(double amount) {
+        this.amount = amount;
     }
 }

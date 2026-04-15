@@ -19,13 +19,20 @@ public interface InventoryClient {
             @PathVariable("id") Long productId
     );
 
-    @PatchMapping("/products/{id}/reduce")
-    void reduceStock(@PathVariable("id") Long productId,
-                     @RequestBody StockRequest request);
-
     @PatchMapping("/products/{id}/increase")
-    void increaseStock(@PathVariable("id") Long productId,
-                       @RequestBody StockRequest request);
+    void increaseStock(
+            @RequestHeader("X-Internal-Key") String key,
+            @PathVariable("id") Long productId,
+            @RequestBody StockRequest request
+    );
+
+    @PatchMapping("/products/{id}/reduce")
+    void reduceStock(
+            @RequestHeader("X-Internal-Key") String key,
+            @PathVariable("id") Long productId,
+            @RequestBody StockRequest request
+    );
+
 
     class StockRequest {
         private int quantity;

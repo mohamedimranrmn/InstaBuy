@@ -1,89 +1,204 @@
 package com.mphasis.paymentservice.service;
 
+import com.mphasis.paymentservice.client.OrderClient;
 import com.mphasis.paymentservice.model.*;
 import com.mphasis.paymentservice.dao.PaymentRepository;
 import com.mphasis.paymentservice.dto.*;
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 public class PaymentService {
 
-    private final PaymentRepository repo;
+    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
 
-    public PaymentService(PaymentRepository repo) {
+    private final PaymentRepository repo;
+    private final RazorpayClient razorpayClient;
+    private final OrderClient orderClient;
+
+    @Value("${razorpay.secret}")
+    private String razorpaySecret;
+
+    public PaymentService(PaymentRepository repo,
+                          RazorpayClient razorpayClient,
+                          OrderClient orderClient) {
         this.repo = repo;
+        this.razorpayClient = razorpayClient;
+        this.orderClient = orderClient;
     }
 
-    @Transactional
-    public PaymentResponse processPayment(PaymentRequest request) {
-        System.out.println("PAYMENT SERVICE HIT");
-        var existing = repo.findByOrderId(request.getOrderId());
+    private void disableSSLVerification() {
+        try {
+            javax.net.ssl.TrustManager[] trustAllCerts = new javax.net.ssl.TrustManager[]{
+                    new javax.net.ssl.X509TrustManager() {
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() { return null; }
+                        public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                        public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                    }
+            };
+
+            javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+            javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+
+            log.warn("⚠️ SSL validation DISABLED (DEV MODE)");
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String hmacSHA256(String data, String secret) throws Exception {
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(secret.getBytes(), "HmacSHA256"));
+        byte[] hash = mac.doFinal(data.getBytes());
+        return new String(org.apache.commons.codec.binary.Hex.encodeHex(hash));
+    }
+
+    public PaymentResponse createRazorpayOrder(PaymentRequest request) {
+
+        Long orderId = request.getOrderId();
+
+        log.info("Fetching order from OrderService: {}", orderId);
+
+        OrderResponse order = orderClient.getOrder(orderId);
+
+        if (!"PAYMENT_PENDING".equals(order.getStatus())) {
+            throw new RuntimeException("Order not in PAYMENT_PENDING state");
+        }
+
+        var existing = repo.findByOrderId(orderId);
+
         if (existing.isPresent()) {
             Payment p = existing.get();
+
+            log.warn("Payment already exists for orderId={} with status={}", orderId, p.getStatus());
+
+            // If already paid → don't allow retry
+            if (p.getStatus() == PaymentStatus.SUCCESS) {
+                return new PaymentResponse(
+                        "SUCCESS",
+                        p.getTransactionId(),
+                        "Payment already completed",
+                        p.getAmount()
+                );
+            }
+
+            // 🔥 Reuse existing Razorpay order
             return new PaymentResponse(
-                    p.getStatus().name(),
+                    "PENDING",
                     p.getTransactionId(),
-                    "Already processed"
+                    "Reusing existing payment",
+                    p.getAmount()
             );
         }
 
+        // 🔥 STEP 2: Create new payment
         Payment payment = new Payment();
-        payment.setOrderId(request.getOrderId());
-        payment.setUserId(request.getUserId());
-        payment.setAmount(request.getAmount());
+        payment.setOrderId(orderId);
+        payment.setUserId(order.getUserId());
+        payment.setAmount(order.getTotalAmount());
         payment.setStatus(PaymentStatus.INITIATED);
         payment.setCreatedAt(LocalDateTime.now());
 
         repo.save(payment);
 
         try {
-            boolean success = simulatePayment();
+            JSONObject options = new JSONObject();
+            options.put("amount", (int) (order.getTotalAmount() * 100));
+            options.put("currency", "INR");
+            options.put("receipt", "order_" + orderId);
 
-            if (!success) {
-                payment.setStatus(PaymentStatus.FAILED);
-                payment.setFailureReason("Payment gateway failure");
+            disableSSLVerification();
 
-                return new PaymentResponse(
-                        "FAILED",
-                        null,
-                        "Payment gateway failure"
-                );
-            }
+            Order razorOrder = razorpayClient.orders.create(options);
 
-            payment.setStatus(PaymentStatus.SUCCESS);
-            payment.setTransactionId(UUID.randomUUID().toString());
+            String razorpayOrderId = razorOrder.get("id");
+
+            payment.setTransactionId(razorpayOrderId);
+            repo.save(payment);
+
+            log.info("Razorpay order created: {}", razorpayOrderId);
 
             return new PaymentResponse(
-                    "SUCCESS",
-                    payment.getTransactionId(),
-                    "Payment successful"
+                    "PENDING",
+                    razorpayOrderId,
+                    "Order created",
+                    order.getTotalAmount()
             );
 
         } catch (Exception e) {
+            log.error("Razorpay error", e);
 
             payment.setStatus(PaymentStatus.FAILED);
-            payment.setFailureReason("Internal payment error");
+            repo.save(payment);
 
-            return new PaymentResponse(
-                    "FAILED",
-                    null,
-                    "Internal payment error"
-            );
+            throw new RuntimeException("Razorpay error");
         }
     }
 
-    private boolean simulatePayment() {
-        return true;
+    public void confirmPayment(ConfirmRequest request) {
+
+        Payment payment = repo.findByOrderId(request.getOrderId())
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+        try {
+            String data = request.getRazorpayOrderId() + "|" + request.getRazorpayPaymentId();
+
+            String generatedSignature = hmacSHA256(data, razorpaySecret);
+
+            if (!generatedSignature.equals(request.getRazorpaySignature())) {
+                throw new RuntimeException("Invalid signature");
+            }
+
+            payment.setStatus(PaymentStatus.SUCCESS);
+            payment.setTransactionId(request.getRazorpayPaymentId());
+            repo.save(payment);
+
+            log.info("Payment SUCCESS for order {}", request.getOrderId());
+
+            orderClient.confirmOrder(request.getOrderId());
+
+        } catch (Exception e) {
+            log.error("Payment failed for order {}", request.getOrderId());
+            payment.setStatus(PaymentStatus.FAILED);
+            repo.save(payment);
+            orderClient.failOrder(request.getOrderId());
+            throw new RuntimeException("Payment verification failed");
+        }
     }
 
-    public void reversePayment(Long orderId) {
+    public void handlePaymentFailure(Long orderId) {
+
         Payment payment = repo.findByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
+        payment.setStatus(PaymentStatus.FAILED);
+        repo.save(payment);
+
+        orderClient.failOrder(orderId);
+
+        log.info("Payment failed handled for order {}", orderId);
+    }
+
+    public void reversePayment(Long orderId) {
+
+        Payment payment = repo.findByOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+        if (payment.getStatus() != PaymentStatus.SUCCESS) {
+            throw new RuntimeException("Cannot reverse non-success payment");
+        }
+
         payment.setStatus(PaymentStatus.REVERSED);
+        repo.save(payment);
     }
 }

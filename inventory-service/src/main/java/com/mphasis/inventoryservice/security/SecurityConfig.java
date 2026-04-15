@@ -31,9 +31,9 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/products").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/products/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/products/*").hasAnyRole("ADMIN", "CUSTOMER")
                         .requestMatchers("/products/*/reduce", "/products/*/increase")
-                        .hasAnyRole("CUSTOMER", "ADMIN")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/products")
                         .hasAnyRole("CUSTOMER", "ADMIN")
                         .anyRequest().authenticated()
