@@ -1,140 +1,270 @@
 package com.mphasis.orderservice.service;
 
-import com.mphasis.orderservice.client.*;
+import com.mphasis.orderservice.client.InventoryClient;
+import com.mphasis.orderservice.client.UserClient;
 import com.mphasis.orderservice.dto.*;
-import com.mphasis.orderservice.model.*;
+import com.mphasis.orderservice.exception.InventoryException;
+import com.mphasis.orderservice.exception.OrderNotFoundException;
+import com.mphasis.orderservice.model.Order;
+import com.mphasis.orderservice.model.OrderItem;
+import com.mphasis.orderservice.model.OrderStatus;
 import com.mphasis.orderservice.dao.OrderRepository;
 import com.mphasis.orderservice.saga.OrderStateMachine;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
-import org.springframework.security.core.Authentication;
+import org.mockito.*;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class OrderServiceTest {
 
+    @Mock
     private OrderRepository repo;
+    @Mock
     private InventoryClient inventory;
+    @Mock
     private OrderStateMachine stateMachine;
+    @Mock
     private UserClient userClient;
-    private PaymentClient paymentClient;
 
+    @InjectMocks
     private OrderService service;
 
+    private OrderRequest request;
+    private ProductResponse product;
+
     @BeforeEach
-    void setUp() {
-        repo = mock(OrderRepository.class);
-        inventory = mock(InventoryClient.class);
-        stateMachine = mock(OrderStateMachine.class);
-        userClient = mock(UserClient.class);
-        paymentClient = mock(PaymentClient.class);
+    void setup() {
+        MockitoAnnotations.openMocks(this);
 
-        service = new OrderService(repo, inventory, stateMachine, userClient, paymentClient);
-    }
+        ReflectionTestUtils.setField(service, "internalApiKey", "0aK4VOyO5dOwBEBjJG6+cbio1ENbTNYVqi0elOkWnvo=");
 
-    private void mockAuth() {
-        Authentication auth = mock(Authentication.class);
-        when(auth.isAuthenticated()).thenReturn(true);
-        when(auth.getName()).thenReturn("test@test.com");
+        var auth = new UsernamePasswordAuthenticationToken("test@mail.com", null, List.of());
+        SecurityContextHolder.getContext().setAuthentication(auth);
 
-        MockedStatic<SecurityContextHolder> mockedStatic = mockStatic(SecurityContextHolder.class);
-        var securityContext = mock(org.springframework.security.core.context.SecurityContext.class);
+        UserResponse user = new UserResponse();
+        user.setId(1L);
+        when(userClient.getUserByEmail(any())).thenReturn(user);
 
-        mockedStatic.when(SecurityContextHolder::getContext).thenReturn(securityContext);
-        when(securityContext.getAuthentication()).thenReturn(auth);
-    }
+        product = new ProductResponse();
+        product.setProductId(1L);
+        product.setPrice(100.0);
+        product.setAvailableQuantity(10);
 
-    private OrderRequest buildRequest() {
         OrderItemRequest item = new OrderItemRequest();
         item.setProductId(1L);
         item.setQuantity(2);
 
-        OrderRequest request = new OrderRequest();
+        request = new OrderRequest();
         request.setItems(List.of(item));
-        return request;
+
+        when(repo.save(any())).thenAnswer(i -> i.getArgument(0));
     }
 
     @Test
-    void shouldCompleteOrderSuccessfully() {
-        mockAuth();
-
-        UserResponse user = new UserResponse();
-        user.setId(1L);
-        when(userClient.getUserByEmail(any())).thenReturn(user);
-
-        ProductResponse product = new ProductResponse();
-        product.setPrice(100);
-        product.setAvailableQuantity(10);
+    void shouldCreateOrderSuccessfully() {
         when(inventory.getProduct(1L)).thenReturn(product);
 
-        PaymentResponse paymentResponse = new PaymentResponse();
-        paymentResponse.setStatus("SUCCESS");
-        when(paymentClient.processPayment(any())).thenReturn(paymentResponse);
+        OrderResponse response = service.createOrder(request);
 
-        when(repo.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
-
-        OrderResponse response = service.createOrder(buildRequest());
-
-        assertEquals("COMPLETED", response.getStatus());
-
-        verify(paymentClient).processPayment(any());
-        verify(inventory, never()).increaseStock(anyLong(), any());
+        assertEquals("PAYMENT_PENDING", response.getStatus());
+        verify(inventory).reduceStock(any(), eq(1L), any());
     }
 
     @Test
-    void shouldFailAndRollbackWhenPaymentFails() {
-        mockAuth();
+    void shouldFailIfItemsIsNull() {
+        request.setItems(null);
 
-        UserResponse user = new UserResponse();
-        user.setId(1L);
-        when(userClient.getUserByEmail(any())).thenReturn(user);
-
-        ProductResponse product = new ProductResponse();
-        product.setPrice(100);
-        product.setAvailableQuantity(10);
-        when(inventory.getProduct(anyLong())).thenReturn(product);
-
-        PaymentResponse paymentResponse = new PaymentResponse();
-        paymentResponse.setStatus("FAILED");
-        when(paymentClient.processPayment(any())).thenReturn(paymentResponse);
-
-        when(repo.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
-
-        OrderResponse response = service.createOrder(buildRequest());
-
-        assertEquals("FAILED", response.getStatus());
-
-        verify(inventory).increaseStock(eq(1L), any()); // rollback
+        assertThrows(NullPointerException.class,
+                () -> service.createOrder(request));
     }
 
     @Test
-    void shouldRollbackAndReversePaymentOnException() {
-        mockAuth();
+    void shouldFailIfInsufficientStock() {
+        product.setAvailableQuantity(1);
+        when(inventory.getProduct(1L)).thenReturn(product);
 
-        UserResponse user = new UserResponse();
-        user.setId(1L);
-        when(userClient.getUserByEmail(any())).thenReturn(user);
+        assertThrows(InventoryException.class,
+                () -> service.createOrder(request));
+    }
 
-        ProductResponse product = new ProductResponse();
-        product.setPrice(100);
-        product.setAvailableQuantity(10);
-        when(inventory.getProduct(anyLong())).thenReturn(product);
+    @Test
+    void shouldFailWithoutRollbackIfFirstInventoryCallFails() {
+        when(inventory.getProduct(1L)).thenReturn(product);
 
-        when(paymentClient.processPayment(any()))
-                .thenThrow(new RuntimeException("Payment service down"));
+        doThrow(new RuntimeException())
+                .when(inventory).reduceStock(any(), anyLong(), any());
 
-        when(repo.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
-
-        OrderResponse response = service.createOrder(buildRequest());
+        OrderResponse response = service.createOrder(request);
 
         assertEquals("FAILED", response.getStatus());
 
-        verify(inventory).increaseStock(eq(1L), any());
+        verify(inventory, never()).increaseStock(any(), anyLong(), any());
+    }
+
+    @Test
+    void shouldHandleInventoryFallbackFailure() {
+        when(inventory.getProduct(1L)).thenReturn(product);
+
+        doThrow(new InventoryException("fallback"))
+                .when(inventory).reduceStock(any(), anyLong(), any());
+
+        OrderResponse response = service.createOrder(request);
+
+        assertEquals("FAILED", response.getStatus());
+    }
+
+    @Test
+    void shouldFailIfUserNotAuthenticated() {
+        SecurityContextHolder.clearContext();
+
+        assertThrows(RuntimeException.class,
+                () -> service.createOrder(request));
+    }
+
+    @Test
+    void shouldFailIfUserClientFails() {
+        when(userClient.getUserByEmail(any()))
+                .thenThrow(new RuntimeException());
+
+        assertThrows(RuntimeException.class,
+                () -> service.createOrder(request));
+    }
+
+    @Test
+    void shouldFailIfProductIsNull() {
+        when(inventory.getProduct(1L)).thenReturn(null);
+
+        assertThrows(NullPointerException.class,
+                () -> service.createOrder(request));
+    }
+
+    @Test
+    void shouldHandleEmptyOrderItems() {
+        request.setItems(Collections.emptyList());
+
+        OrderResponse response = service.createOrder(request);
+
+        assertEquals(0.0, response.getTotalAmount());
+    }
+
+    @Test
+    void shouldValidateStateTransitions() {
+        when(inventory.getProduct(1L)).thenReturn(product);
+
+        service.createOrder(request);
+
+        verify(stateMachine, atLeastOnce()).validate(any(), any());
+    }
+
+    @Test
+    void shouldConfirmPaymentSuccessfully() {
+        Order order = new Order();
+        order.setStatus(OrderStatus.PAYMENT_PENDING);
+
+        when(repo.findById(1L)).thenReturn(Optional.of(order));
+
+        service.confirmOrderPayment(1L);
+
+        assertEquals(OrderStatus.COMPLETED, order.getStatus());
+        verify(repo).save(order);
+    }
+
+    @Test
+    void shouldThrowIfOrderNotFoundOnConfirm() {
+        when(repo.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(OrderNotFoundException.class,
+                () -> service.confirmOrderPayment(1L));
+    }
+
+    @Test
+    void shouldThrowIfInvalidStateOnConfirm() {
+        Order order = new Order();
+        order.setStatus(OrderStatus.CREATED);
+
+        when(repo.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> service.confirmOrderPayment(1L));
+    }
+
+    @Test
+    void shouldFailOrderPaymentSuccessfully() {
+        Order order = new Order();
+        order.setStatus(OrderStatus.PAYMENT_PENDING);
+
+        OrderItem item = new OrderItem();
+        item.setProductId(1L);
+        item.setQuantity(2);
+
+        order.setItems(List.of(item));
+
+        when(repo.findById(1L)).thenReturn(Optional.of(order));
+
+        service.failOrderPayment(1L);
+
+        assertEquals(OrderStatus.FAILED, order.getStatus());
+        verify(inventory).increaseStock(any(), eq(1L), any());
+    }
+
+    @Test
+    void shouldThrowIfOrderNotFoundOnFailPayment() {
+        when(repo.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> service.failOrderPayment(1L));
+    }
+
+    @Test
+    void shouldThrowIfInvalidStateOnFailPayment() {
+        Order order = new Order();
+        order.setStatus(OrderStatus.CREATED);
+
+        when(repo.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> service.failOrderPayment(1L));
+    }
+
+    @Test
+    void shouldGetOrderById() {
+        Order order = new Order();
+        order.setOrderId(1L);
+        order.setStatus(OrderStatus.CREATED); // ✅ FIX
+
+        when(repo.findById(1L)).thenReturn(Optional.of(order));
+
+        OrderResponse response = service.getOrderResponseById(1L);
+
+        assertEquals(1L, response.getOrderId());
+    }
+
+    @Test
+    void shouldThrowIfOrderNotFound() {
+        when(repo.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> service.getOrderResponseById(1L));
+    }
+
+    @Test
+    void shouldGetAllOrders() {
+        Order order = new Order();
+        order.setOrderId(1L);
+        order.setStatus(OrderStatus.CREATED); // ✅ FIX
+
+        when(repo.findAll()).thenReturn(List.of(order));
+
+        List<OrderResponse> responses = service.getAllOrdersResponse();
+
+        assertEquals(1, responses.size());
     }
 }
