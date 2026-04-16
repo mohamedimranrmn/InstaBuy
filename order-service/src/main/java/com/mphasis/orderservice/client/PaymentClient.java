@@ -22,4 +22,7 @@ public interface PaymentClient {
 
     @PostMapping("/payments/reverse/{orderId}")
     void reversePayment(@PathVariable("orderId") Long orderId);
+
+    @PostMapping("/payments/refund/{orderId}")
+    void refund(@PathVariable("orderId") Long orderId);
 }

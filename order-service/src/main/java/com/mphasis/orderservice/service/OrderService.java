@@ -1,6 +1,7 @@
 package com.mphasis.orderservice.service;
 
 import com.mphasis.orderservice.client.InventoryClient;
+import com.mphasis.orderservice.client.PaymentClient;
 import com.mphasis.orderservice.client.UserClient;
 import com.mphasis.orderservice.dto.*;
 import com.mphasis.orderservice.exception.*;
@@ -37,15 +38,18 @@ public class OrderService {
     private final InventoryClient inventory;
     private final OrderStateMachine stateMachine;
     private final UserClient userClient;
+    private final PaymentClient paymentClient;
 
     public OrderService(OrderRepository repo,
                         InventoryClient inventory,
                         OrderStateMachine stateMachine,
-                        UserClient userClient) {
+                        UserClient userClient,
+                        PaymentClient paymentClient) {
         this.repo = repo;
         this.inventory = inventory;
         this.stateMachine = stateMachine;
         this.userClient = userClient;
+        this.paymentClient = paymentClient;
     }
 
     @Transactional
@@ -105,6 +109,61 @@ public class OrderService {
         repo.save(order);
 
         log.info("Order {} marked COMPLETED after payment", orderId);
+    }
+
+    @Transactional
+    public void cancelOrder(Long orderId) {
+
+        Order order = repo.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            log.info("Order already cancelled {}", orderId);
+            return;
+        }
+
+        if (order.getStatus() == OrderStatus.PAYMENT_PENDING ||
+                order.getStatus() == OrderStatus.INVENTORY_RESERVED ||
+                order.getStatus() == OrderStatus.CREATED) {
+
+            rollbackInventory(order.getItems());
+
+            stateMachine.validate(order.getStatus(), OrderStatus.CANCELLED);
+            order.setStatus(OrderStatus.CANCELLED);
+
+            repo.save(order);
+
+            log.info("Order {} cancelled before payment", orderId);
+            return;
+        }
+
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+
+            stateMachine.validate(order.getStatus(), OrderStatus.REFUND_PENDING);
+            order.setStatus(OrderStatus.REFUND_PENDING);
+            repo.save(order);
+
+            try {
+                rollbackInventory(order.getItems());
+                paymentClient.refund(orderId);
+
+                stateMachine.validate(OrderStatus.REFUND_PENDING, OrderStatus.REFUNDED);
+                order.setStatus(OrderStatus.REFUNDED);
+
+                stateMachine.validate(OrderStatus.REFUNDED, OrderStatus.CANCELLED);
+                order.setStatus(OrderStatus.CANCELLED);
+
+                repo.save(order);
+
+                log.info("Order {} refunded and cancelled", orderId);
+
+            } catch (Exception e) {
+                log.error("Refund failed for order {}", orderId, e);
+                throw new RuntimeException("Refund failed");
+            }
+            return;
+        }
+        throw new RuntimeException("Cannot cancel order in state: " + order.getStatus());
     }
 
     @Retry(name = "inventoryRetry")

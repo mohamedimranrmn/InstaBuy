@@ -6,6 +6,7 @@ import com.mphasis.paymentservice.dao.PaymentRepository;
 import com.mphasis.paymentservice.dto.*;
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
+import jakarta.transaction.Transactional;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 public class PaymentService {
@@ -49,7 +51,7 @@ public class PaymentService {
             javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
             javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
 
-            log.warn("⚠️ SSL validation DISABLED (DEV MODE)");
+            log.warn("SSL validation DISABLED (DEV MODE)");
 
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -92,7 +94,6 @@ public class PaymentService {
                 );
             }
 
-            // 🔥 Reuse existing Razorpay order
             return new PaymentResponse(
                     "PENDING",
                     p.getTransactionId(),
@@ -101,7 +102,6 @@ public class PaymentService {
             );
         }
 
-        // 🔥 STEP 2: Create new payment
         Payment payment = new Payment();
         payment.setOrderId(orderId);
         payment.setUserId(order.getUserId());
@@ -173,6 +173,41 @@ public class PaymentService {
             repo.save(payment);
             orderClient.failOrder(request.getOrderId());
             throw new RuntimeException("Payment verification failed");
+        }
+    }
+
+    @Transactional
+    public void refund(Long orderId) {
+        Optional<Payment> optional = repo.findByOrderId(orderId);
+
+        if (optional.isEmpty()) {
+            log.warn("No payment found for order {}", orderId);
+            return;
+        }
+
+        Payment payment = optional.get();
+
+        if (payment.getStatus() == PaymentStatus.REFUNDED) {
+            log.info("Already refunded {}", orderId);
+            return;
+        }
+
+        if (payment.getStatus() != PaymentStatus.SUCCESS) {
+            log.warn("Skipping refund. Payment not SUCCESS for {}", orderId);
+            return;
+        }
+
+        try {
+            log.info("Refund initiated for order {}", orderId);
+
+            payment.setStatus(PaymentStatus.REFUNDED);
+            repo.save(payment);
+
+            log.info("Refund completed for order {}", orderId);
+
+        } catch (Exception e) {
+            log.error("Refund failed for order {}", orderId, e);
+            throw new RuntimeException("Refund failed");
         }
     }
 

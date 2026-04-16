@@ -58,4 +58,10 @@ public class PaymentController {
 
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/refund/{orderId}")
+    public ResponseEntity<Void> refund(@PathVariable Long orderId) {
+        service.refund(orderId);
+        return ResponseEntity.ok().build();
+    }
 }

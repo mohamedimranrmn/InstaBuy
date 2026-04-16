@@ -60,4 +60,10 @@ public class OrderController {
         service.failOrderPayment(orderId);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/cancel/{orderId}")
+    public ResponseEntity<String> cancelOrder(@PathVariable Long orderId) {
+        service.cancelOrder(orderId);
+        return ResponseEntity.ok("Order cancelled successfully");
+    }
 }
