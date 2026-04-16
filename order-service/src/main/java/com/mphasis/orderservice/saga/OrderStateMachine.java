@@ -21,7 +21,10 @@ public class OrderStateMachine {
             Set.of(OrderStatus.COMPLETED, OrderStatus.FAILED, OrderStatus.CANCELLED),
 
             OrderStatus.COMPLETED,
-            Set.of(OrderStatus.REFUND_PENDING),
+            Set.of(OrderStatus.CANCEL_REQUESTED),
+
+            OrderStatus.CANCEL_REQUESTED,
+            Set.of(OrderStatus.REFUND_PENDING, OrderStatus.CANCELLED),
 
             OrderStatus.REFUND_PENDING,
             Set.of(OrderStatus.REFUNDED),
@@ -31,11 +34,17 @@ public class OrderStateMachine {
 
             OrderStatus.FAILED,
             Set.of(OrderStatus.CANCELLED)
+
     );
 
     public void validate(OrderStatus current, OrderStatus next) {
-        if (!transitions.getOrDefault(current, Set.of()).contains(next)) {
-            throw new IllegalStateException("Invalid transition: " + current + " → " + next);
+
+        if (!transitions.containsKey(current) ||
+                !transitions.get(current).contains(next)) {
+
+            throw new IllegalStateException(
+                    "Invalid transition: " + current + " → " + next
+            );
         }
     }
 }

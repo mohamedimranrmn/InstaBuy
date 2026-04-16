@@ -66,4 +66,19 @@ public class OrderController {
         service.cancelOrder(orderId);
         return ResponseEntity.ok("Order cancelled successfully");
     }
+
+    @GetMapping("/cancel-requests")
+    public ResponseEntity<List<OrderResponse>> getCancelRequests() {
+        return ResponseEntity.ok(service.getByStatus("CANCEL_REQUESTED"));
+    }
+
+    @PostMapping("/refund-decision/{orderId}")
+    public ResponseEntity<String> refundDecision(
+            @PathVariable Long orderId,
+            @RequestParam boolean approve) {
+
+        service.processRefundDecision(orderId, approve);
+
+        return ResponseEntity.ok("Decision processed");
+    }
 }
