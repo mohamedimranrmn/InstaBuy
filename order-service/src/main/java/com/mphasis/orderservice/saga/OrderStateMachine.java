@@ -10,13 +10,24 @@ import java.util.Set;
 public class OrderStateMachine {
 
     private static final Map<OrderStatus, Set<OrderStatus>> transitions = Map.of(
-            OrderStatus.CREATED, Set.of(OrderStatus.INVENTORY_RESERVED, OrderStatus.FAILED),
+
+            OrderStatus.CREATED,
+            Set.of(OrderStatus.INVENTORY_RESERVED, OrderStatus.FAILED),
 
             OrderStatus.INVENTORY_RESERVED,
             Set.of(OrderStatus.PAYMENT_PENDING, OrderStatus.FAILED),
 
             OrderStatus.PAYMENT_PENDING,
-            Set.of(OrderStatus.COMPLETED, OrderStatus.FAILED),
+            Set.of(OrderStatus.COMPLETED, OrderStatus.FAILED, OrderStatus.CANCELLED),
+
+            OrderStatus.COMPLETED,
+            Set.of(OrderStatus.REFUND_PENDING),
+
+            OrderStatus.REFUND_PENDING,
+            Set.of(OrderStatus.REFUNDED),
+
+            OrderStatus.REFUNDED,
+            Set.of(OrderStatus.CANCELLED),
 
             OrderStatus.FAILED,
             Set.of(OrderStatus.CANCELLED)
