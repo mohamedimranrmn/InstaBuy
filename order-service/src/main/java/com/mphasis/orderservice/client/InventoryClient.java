@@ -16,6 +16,7 @@ public interface InventoryClient {
 
     @GetMapping("/products/{id}")
     ProductResponse getProduct(
+            @RequestHeader("X-Internal-Key") String key,
             @PathVariable("id") Long productId
     );
 
@@ -33,7 +34,6 @@ public interface InventoryClient {
             @RequestBody StockRequest request
     );
 
-
     class StockRequest {
         private int quantity;
 
@@ -43,12 +43,7 @@ public interface InventoryClient {
             this.quantity = quantity;
         }
 
-        public int getQuantity() {
-            return quantity;
-        }
-
-        public void setQuantity(int quantity) {
-            this.quantity = quantity;
-        }
+        public int getQuantity() { return quantity; }
+        public void setQuantity(int quantity) { this.quantity = quantity; }
     }
 }
