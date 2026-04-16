@@ -1,4 +1,3 @@
-/*
 package com.mphasis.inventoryservice.service;
 
 import com.mphasis.inventoryservice.dao.ProductRepository;
@@ -8,42 +7,48 @@ import com.mphasis.inventoryservice.model.Product;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockito.*;
 import org.springframework.data.domain.*;
 
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ProductServiceTest {
 
+    @Mock
     private ProductRepository repo;
+
+    @InjectMocks
     private ProductService service;
 
+    private Product product;
+
     @BeforeEach
-    void setUp() {
-        repo = mock(ProductRepository.class);
-        service = new ProductService(repo);
+    void setup() {
+        MockitoAnnotations.openMocks(this);
+
+        product = new Product();
+        product.setProductId(1L);
+        product.setProductName("Laptop");
+        product.setPrice(50000);
+        product.setAvailableQuantity(10);
     }
 
     @Test
     void shouldAddProduct() {
-        Product product = new Product();
-        product.setProductName("iPhone");
-
         when(repo.save(product)).thenReturn(product);
 
-        Product saved = service.addProduct(product);
+        Product result = service.addProduct(product);
 
-        assertEquals("iPhone", saved.getProductName());
-        verify(repo).save(product);
+        assertNotNull(result);
+        assertEquals("Laptop", result.getProductName());
+        verify(repo, times(1)).save(product);
     }
 
     @Test
     void shouldDeleteProduct() {
-        Product product = new Product();
-
         when(repo.findById(1L)).thenReturn(Optional.of(product));
 
         service.deleteProduct(1L);
@@ -55,45 +60,43 @@ class ProductServiceTest {
     void shouldThrowWhenDeletingNonExistingProduct() {
         when(repo.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ProductNotFoundException.class, () ->
-                service.deleteProduct(1L));
+        assertThrows(ProductNotFoundException.class,
+                () -> service.deleteProduct(1L));
+
+        verify(repo, never()).delete(any());
     }
 
     @Test
     void shouldUpdateProduct() {
-        Product existing = new Product();
-        existing.setProductName("Old");
-        existing.setPrice(100);
-        existing.setAvailableQuantity(10);
-
         Product updated = new Product();
-        updated.setProductName("New");
-        updated.setPrice(200);
-        updated.setAvailableQuantity(20);
+        updated.setProductName("Phone");
+        updated.setPrice(20000);
+        updated.setAvailableQuantity(5);
 
-        when(repo.findById(1L)).thenReturn(Optional.of(existing));
-        when(repo.save(existing)).thenReturn(existing);
+        when(repo.findById(1L)).thenReturn(Optional.of(product));
+        when(repo.save(any(Product.class))).thenReturn(product);
 
         Product result = service.updateProduct(1L, updated);
 
-        assertEquals("New", result.getProductName());
-        assertEquals(200, result.getPrice());
-        assertEquals(20, result.getAvailableQuantity());
+        assertEquals("Phone", product.getProductName());
+        assertEquals(20000, product.getPrice());
+        assertEquals(5, product.getAvailableQuantity());
+
+        verify(repo).save(product);
     }
 
     @Test
     void shouldThrowWhenUpdatingNonExistingProduct() {
         when(repo.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ProductNotFoundException.class, () ->
-                service.updateProduct(1L, new Product()));
+        Product updated = new Product();
+
+        assertThrows(ProductNotFoundException.class,
+                () -> service.updateProduct(1L, updated));
     }
 
     @Test
     void shouldIncreaseStock() {
-        Product product = new Product();
-        product.setAvailableQuantity(10);
-
         when(repo.findById(1L)).thenReturn(Optional.of(product));
 
         service.increaseStock(1L, 5);
@@ -103,18 +106,15 @@ class ProductServiceTest {
     }
 
     @Test
-    void shouldThrowWhenIncreasingStockForMissingProduct() {
+    void shouldThrowWhenIncreasingStockForNonExistingProduct() {
         when(repo.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () ->
-                service.increaseStock(1L, 5));
+        assertThrows(RuntimeException.class,
+                () -> service.increaseStock(1L, 5));
     }
 
     @Test
     void shouldReduceStock() {
-        Product product = new Product();
-        product.setAvailableQuantity(10);
-
         when(repo.findById(1L)).thenReturn(Optional.of(product));
 
         service.reduceStock(1L, 5);
@@ -124,63 +124,104 @@ class ProductServiceTest {
     }
 
     @Test
-    void shouldThrowWhenStockInsufficient() {
-        Product product = new Product();
-        product.setAvailableQuantity(3);
-
+    void shouldThrowIfQuantityIsZeroOrNegative() {
         when(repo.findById(1L)).thenReturn(Optional.of(product));
 
-        assertThrows(InsufficientStockException.class, () ->
-                service.reduceStock(1L, 5));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.reduceStock(1L, 0));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.reduceStock(1L, -3));
     }
 
     @Test
-    void shouldThrowWhenQuantityInvalid() {
-        Product product = new Product();
-        product.setAvailableQuantity(10);
-
+    void shouldThrowIfInsufficientStock() {
         when(repo.findById(1L)).thenReturn(Optional.of(product));
 
-        assertThrows(IllegalArgumentException.class, () ->
-                service.reduceStock(1L, 0));
+        assertThrows(InsufficientStockException.class,
+                () -> service.reduceStock(1L, 50));
     }
 
     @Test
-    void shouldThrowWhenReducingStockForMissingProduct() {
+    void shouldThrowWhenReducingStockForNonExistingProduct() {
         when(repo.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ProductNotFoundException.class, () ->
-                service.reduceStock(1L, 5));
-    }
-
-    @Test
-    void shouldReturnPagedProducts() {
-        Pageable pageable = PageRequest.of(0, 2);
-        Page<Product> page = new PageImpl<>(java.util.List.of(new Product(), new Product()));
-
-        when(repo.findAll(pageable)).thenReturn(page);
-
-        Page<Product> result = service.getAllProducts(pageable);
-
-        assertEquals(2, result.getContent().size());
+        assertThrows(ProductNotFoundException.class,
+                () -> service.reduceStock(1L, 5));
     }
 
     @Test
     void shouldReturnProductById() {
-        Product product = new Product();
-
         when(repo.findById(1L)).thenReturn(Optional.of(product));
 
         Product result = service.getProductById(1L);
 
-        assertNotNull(result);
+        assertEquals(1L, result.getProductId());
     }
 
     @Test
-    void shouldThrowWhenProductNotFound() {
+    void shouldThrowIfProductNotFound() {
         when(repo.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ProductNotFoundException.class, () ->
-                service.getProductById(1L));
+        assertThrows(ProductNotFoundException.class,
+                () -> service.getProductById(1L));
     }
-}*/
+
+    @Test
+    void shouldReduceStockToZero() {
+        product.setAvailableQuantity(5);
+
+        when(repo.findById(1L)).thenReturn(Optional.of(product));
+
+        service.reduceStock(1L, 5);
+
+        assertEquals(0, product.getAvailableQuantity());
+    }
+
+    @Test
+    void shouldThrowIfIncreaseStockIsInvalid() {
+        when(repo.findById(1L)).thenReturn(Optional.of(product));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.increaseStock(1L, -10));
+    }
+
+    @Test
+    void shouldHandleRepositoryFailure() {
+        when(repo.save(any())).thenThrow(new RuntimeException("DB error"));
+
+        assertThrows(RuntimeException.class,
+                () -> service.addProduct(product));
+    }
+
+    @Test
+    void shouldNotCallSaveWhenReduceFails() {
+        when(repo.findById(1L)).thenReturn(Optional.of(product));
+
+        assertThrows(InsufficientStockException.class,
+                () -> service.reduceStock(1L, 50));
+
+        verify(repo, never()).save(any());
+    }
+
+    @Test
+    void shouldNotModifyOtherFieldsWhenReducingStock() {
+        when(repo.findById(1L)).thenReturn(Optional.of(product));
+
+        service.reduceStock(1L, 5);
+
+        assertEquals("Laptop", product.getProductName());
+        assertEquals(50000, product.getPrice());
+    }
+
+    @Test
+    void shouldReturnPagedProducts() {
+        Page<Product> page = new PageImpl<>(List.of(product));
+
+        when(repo.findAll(any(Pageable.class))).thenReturn(page);
+
+        Page<Product> result = service.getAllProducts(PageRequest.of(0, 10));
+
+        assertEquals(1, result.getTotalElements());
+    }
+}

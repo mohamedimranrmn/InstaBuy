@@ -45,6 +45,10 @@ public class ProductService {
     }
 
     public void increaseStock(Long productId, int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than 0");
+        }
+
         Product product = repo.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
