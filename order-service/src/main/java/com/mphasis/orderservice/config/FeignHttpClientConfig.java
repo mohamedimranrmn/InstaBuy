@@ -1,3 +1,4 @@
+/*
 package com.mphasis.orderservice.config;
 
 import feign.Client;
@@ -12,4 +13,4 @@ public class FeignHttpClientConfig {
     public Client feignClient() {
         return new ApacheHttpClient();
     }
-}
+}*/
