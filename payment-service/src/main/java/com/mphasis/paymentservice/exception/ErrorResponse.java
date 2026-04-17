@@ -1,6 +1,4 @@
-package com.mphasis.orderservice.exception;
-
-import java.time.LocalDateTime;
+package com.mphasis.paymentservice.exception;
 
 public class ErrorResponse {
 
@@ -14,7 +12,15 @@ public class ErrorResponse {
         this.timestamp = timestamp;
     }
 
-    public String getErrorCode() { return errorCode; }
-    public String getMessage() { return message; }
-    public long getTimestamp() { return timestamp; }
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
 }

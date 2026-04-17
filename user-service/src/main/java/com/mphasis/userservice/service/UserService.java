@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.mphasis.userservice.dao.UserRepository;
 import com.mphasis.userservice.model.Role;
 import com.mphasis.userservice.model.User;
+import com.mphasis.userservice.exception.*;
 
 @Service
 public class UserService {
@@ -37,9 +38,9 @@ public class UserService {
 
     public User getUserByEmail(String email) {
         if (email == null) {
-            throw new IllegalArgumentException("Email cannot be null");
+            throw new BadRequestException("Email cannot be null");
         }
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
     }
 }

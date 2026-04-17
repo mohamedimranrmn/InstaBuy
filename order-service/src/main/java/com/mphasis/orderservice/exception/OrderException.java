@@ -1,7 +1,7 @@
 package com.mphasis.orderservice.exception;
 
-public class OrderException extends RuntimeException {
+public class OrderException extends BaseException {
     public OrderException(String message) {
-        super(message);
+        super(message, "ORDER_ERROR", 400);
     }
 }

@@ -1,6 +1,4 @@
-package com.mphasis.orderservice.exception;
-
-import java.time.LocalDateTime;
+package com.mphasis.inventoryservice.exception;
 
 public class ErrorResponse {
 
@@ -8,10 +6,10 @@ public class ErrorResponse {
     private String message;
     private long timestamp;
 
-    public ErrorResponse(String errorCode, String message, long timestamp) {
+    public ErrorResponse(String errorCode, String message) {
         this.errorCode = errorCode;
         this.message = message;
-        this.timestamp = timestamp;
+        this.timestamp = System.currentTimeMillis();
     }
 
     public String getErrorCode() { return errorCode; }

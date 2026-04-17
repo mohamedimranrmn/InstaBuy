@@ -1,4 +1,4 @@
-package com.mphasis.orderservice.exception;
+package com.mphasis.paymentservice.exception;
 
 public class PaymentException extends BaseException {
     public PaymentException(String message) {

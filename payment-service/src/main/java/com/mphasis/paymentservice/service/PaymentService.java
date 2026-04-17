@@ -2,6 +2,7 @@ package com.mphasis.paymentservice.service;
 
 import com.mphasis.paymentservice.client.OrderClient;
 import com.mphasis.paymentservice.model.*;
+import com.mphasis.paymentservice.exception.*;
 import com.mphasis.paymentservice.dao.PaymentRepository;
 import com.mphasis.paymentservice.dto.*;
 import com.razorpay.Order;
@@ -54,15 +55,19 @@ public class PaymentService {
             log.warn("SSL validation DISABLED (DEV MODE)");
 
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new ExternalServiceException("SSL configuration failed");
         }
     }
 
-    private String hmacSHA256(String data, String secret) throws Exception {
-        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-        mac.init(new javax.crypto.spec.SecretKeySpec(secret.getBytes(), "HmacSHA256"));
-        byte[] hash = mac.doFinal(data.getBytes());
-        return new String(org.apache.commons.codec.binary.Hex.encodeHex(hash));
+    private String hmacSHA256(String data, String secret) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(secret.getBytes(), "HmacSHA256"));
+            byte[] hash = mac.doFinal(data.getBytes());
+            return new String(org.apache.commons.codec.binary.Hex.encodeHex(hash));
+        } catch (Exception e) {
+            throw new PaymentException("Signature generation failed");
+        }
     }
 
     public PaymentResponse createRazorpayOrder(PaymentRequest request) {
@@ -74,7 +79,7 @@ public class PaymentService {
         OrderResponse order = orderClient.getOrder(orderId);
 
         if (!"PAYMENT_PENDING".equals(order.getStatus())) {
-            throw new RuntimeException("Order not in PAYMENT_PENDING state");
+            throw new InvalidPaymentStateException("Order not in PAYMENT_PENDING state");
         }
 
         var existing = repo.findByOrderId(orderId);
@@ -84,7 +89,6 @@ public class PaymentService {
 
             log.warn("Payment already exists for orderId={} with status={}", orderId, p.getStatus());
 
-            // If already paid → don't allow retry
             if (p.getStatus() == PaymentStatus.SUCCESS) {
                 return new PaymentResponse(
                         "SUCCESS",
@@ -141,14 +145,14 @@ public class PaymentService {
             payment.setStatus(PaymentStatus.FAILED);
             repo.save(payment);
 
-            throw new RuntimeException("Razorpay error");
+            throw new ExternalServiceException("Razorpay error");
         }
     }
 
     public void confirmPayment(ConfirmRequest request) {
 
         Payment payment = repo.findByOrderId(request.getOrderId())
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+                .orElseThrow(() -> new PaymentNotFoundException(request.getOrderId()));
 
         try {
             String data = request.getRazorpayOrderId() + "|" + request.getRazorpayPaymentId();
@@ -156,7 +160,7 @@ public class PaymentService {
             String generatedSignature = hmacSHA256(data, razorpaySecret);
 
             if (!generatedSignature.equals(request.getRazorpaySignature())) {
-                throw new RuntimeException("Invalid signature");
+                throw new InvalidSignatureException();
             }
 
             payment.setStatus(PaymentStatus.SUCCESS);
@@ -167,12 +171,18 @@ public class PaymentService {
 
             orderClient.confirmOrder(request.getOrderId());
 
+        } catch (InvalidSignatureException ex) {
+            throw ex;
+
         } catch (Exception e) {
-            log.error("Payment failed for order {}", request.getOrderId());
+
+            log.error("Payment verification failed for order {}", request.getOrderId(), e);
+
             payment.setStatus(PaymentStatus.FAILED);
             repo.save(payment);
             orderClient.failOrder(request.getOrderId());
-            throw new RuntimeException("Payment verification failed");
+
+            throw new PaymentException("Payment verification failed");
         }
     }
 
@@ -207,14 +217,14 @@ public class PaymentService {
 
         } catch (Exception e) {
             log.error("Refund failed for order {}", orderId, e);
-            throw new RuntimeException("Refund failed");
+            throw new PaymentException("Refund failed");
         }
     }
 
     public void handlePaymentFailure(Long orderId) {
 
         Payment payment = repo.findByOrderId(orderId)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+                .orElseThrow(() -> new PaymentNotFoundException(orderId));
 
         payment.setStatus(PaymentStatus.FAILED);
         repo.save(payment);
@@ -227,10 +237,10 @@ public class PaymentService {
     public void reversePayment(Long orderId) {
 
         Payment payment = repo.findByOrderId(orderId)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+                .orElseThrow(() -> new PaymentNotFoundException(orderId));
 
         if (payment.getStatus() != PaymentStatus.SUCCESS) {
-            throw new RuntimeException("Cannot reverse non-success payment");
+            throw new InvalidPaymentStateException("Cannot reverse non-success payment");
         }
 
         payment.setStatus(PaymentStatus.REVERSED);

@@ -1,5 +1,6 @@
 package com.mphasis.inventoryservice.service;
 
+import com.mphasis.inventoryservice.exception.*;
 import com.mphasis.inventoryservice.exception.InsufficientStockException;
 import com.mphasis.inventoryservice.exception.ProductNotFoundException;
 import com.mphasis.inventoryservice.model.Product;
@@ -46,11 +47,11 @@ public class ProductService {
 
     public void increaseStock(Long productId, int quantity) {
         if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be greater than 0");
+            throw new BadRequestException("Quantity must be greater than 0");
         }
 
         Product product = repo.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
         product.setAvailableQuantity(product.getAvailableQuantity() + quantity);
         repo.save(product);
@@ -63,7 +64,7 @@ public class ProductService {
                 .orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
         if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be greater than 0");
+            throw new BadRequestException("Quantity must be greater than 0");
         }
 
         if (product.getAvailableQuantity() < quantity) {

@@ -1,6 +1,7 @@
 package com.mphasis.inventoryservice.controller;
 
 import com.mphasis.inventoryservice.dto.*;
+import com.mphasis.inventoryservice.exception.*;
 import com.mphasis.inventoryservice.mapper.ProductMapper;
 import com.mphasis.inventoryservice.model.Product;
 import com.mphasis.inventoryservice.service.ProductService;
@@ -29,7 +30,7 @@ public class ProductController {
 
     private void validateInternalKey(String key) {
         if (!internalKey.equals(key)) {
-            throw new IllegalArgumentException("Invalid internal API key");
+            throw new UnauthorizedException("Invalid internal API key");
         }
     }
 
@@ -41,25 +42,27 @@ public class ProductController {
     }
 
     @PatchMapping("/{id}/reduce")
-    public ResponseEntity<Void> reduceStock(
+    public ResponseEntity<String> reduceStock(
             @RequestHeader("X-Internal-Key") String key,
             @PathVariable Long id,
             @Valid @RequestBody StockRequest request) {
 
         validateInternalKey(key);
         service.reduceStock(id, request.getQuantity());
-        return ResponseEntity.ok().build();
+
+        return ResponseEntity.ok("Stock reduced successfully");
     }
 
     @PatchMapping("/{id}/increase")
-    public ResponseEntity<Void> increaseStock(
+    public ResponseEntity<String> increaseStock(
             @RequestHeader("X-Internal-Key") String key,
             @PathVariable Long id,
             @Valid @RequestBody StockRequest request) {
 
         validateInternalKey(key);
         service.increaseStock(id, request.getQuantity());
-        return ResponseEntity.ok().build();
+
+        return ResponseEntity.ok("Stock increased successfully");
     }
 
     @GetMapping("/{id}")
