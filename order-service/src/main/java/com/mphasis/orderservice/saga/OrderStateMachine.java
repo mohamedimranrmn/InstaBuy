@@ -1,5 +1,6 @@
 package com.mphasis.orderservice.saga;
 
+import com.mphasis.orderservice.exception.InvalidStateTransitionException;
 import com.mphasis.orderservice.model.OrderStatus;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +43,7 @@ public class OrderStateMachine {
         if (!transitions.containsKey(current) ||
                 !transitions.get(current).contains(next)) {
 
-            throw new IllegalStateException(
+            throw new InvalidStateTransitionException(
                     "Invalid transition: " + current + " → " + next
             );
         }

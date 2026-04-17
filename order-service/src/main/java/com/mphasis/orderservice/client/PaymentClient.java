@@ -9,10 +9,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(
         name = "payment-service",
-        /*url = "http://localhost:8083",*/
         configuration = {
                 com.mphasis.orderservice.config.FeignConfig.class
-                /*com.mphasis.orderservice.config.FeignHttpClientConfig.class*/
         }
 )
 public interface PaymentClient {

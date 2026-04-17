@@ -50,7 +50,6 @@ public class OrderService {
         this.stateMachine = stateMachine;
     }
 
-    // ===================== CREATE ORDER =====================
 
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
@@ -82,7 +81,8 @@ public class OrderService {
 
             log.info("Order {} → PAYMENT_PENDING", order.getOrderId());
 
-        } catch (Exception e) {
+        }
+        catch (InventoryException | PaymentException e) {
 
             log.error("Order failed {} reason={}", order.getOrderId(), e.getMessage());
 
@@ -90,12 +90,15 @@ public class OrderService {
 
             order.setFailureReason(e.getMessage());
             transition(order, OrderStatus.FAILED);
-        }
 
-        return mapToResponse(repo.save(order));
+            repo.save(order);
+
+            log.error("Order processing failed", e);
+            throw new OrderException("Order processing failed");
+        }
+        return mapToResponse(order);
     }
 
-    // ===================== CONFIRM PAYMENT =====================
 
     @Transactional
     public void confirmOrderPayment(Long orderId) {
@@ -104,7 +107,7 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         if (order.getStatus() != OrderStatus.PAYMENT_PENDING) {
-            throw new RuntimeException("Invalid state for payment confirmation");
+            throw new InvalidStateTransitionException("Invalid state for payment confirmation");
         }
 
         transition(order, OrderStatus.COMPLETED);
@@ -113,16 +116,15 @@ public class OrderService {
         log.info("Order {} → COMPLETED", orderId);
     }
 
-    // ===================== FAIL PAYMENT =====================
 
     @Transactional
     public void failOrderPayment(Long orderId) {
 
         Order order = repo.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         if (order.getStatus() != OrderStatus.PAYMENT_PENDING) {
-            throw new RuntimeException("Invalid state for failure");
+            throw new InvalidStateTransitionException("Invalid state for failure");
         }
 
         rollbackInventory(order.getItems());
@@ -135,21 +137,18 @@ public class OrderService {
         log.info("Order {} → FAILED", orderId);
     }
 
-    // ===================== CANCEL ORDER =====================
 
     @Transactional
     public void cancelOrder(Long orderId) {
 
         Order order = repo.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
 
-        // Idempotency
         if (order.getStatus() == OrderStatus.CANCELLED) {
             log.info("Order already cancelled {}", orderId);
             return;
         }
 
-        // BEFORE PAYMENT
         if (order.getStatus() == OrderStatus.CREATED ||
                 order.getStatus() == OrderStatus.INVENTORY_RESERVED ||
                 order.getStatus() == OrderStatus.PAYMENT_PENDING) {
@@ -163,7 +162,6 @@ public class OrderService {
             return;
         }
 
-        // AFTER PAYMENT → ADMIN FLOW
         if (order.getStatus() == OrderStatus.COMPLETED) {
 
             transition(order, OrderStatus.CANCEL_REQUESTED);
@@ -173,19 +171,17 @@ public class OrderService {
             return;
         }
 
-        throw new RuntimeException("Cannot cancel order in state: " + order.getStatus());
+        throw new InvalidStateTransitionException("Cannot cancel order in state: " + order.getStatus());
     }
-
-    // ===================== ADMIN REFUND DECISION =====================
 
     @Transactional
     public void processRefundDecision(Long orderId, boolean approve) {
 
         Order order = repo.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         if (order.getStatus() != OrderStatus.CANCEL_REQUESTED) {
-            throw new RuntimeException("Invalid state for refund decision");
+            throw new InvalidStateTransitionException("Invalid state for refund decision");
         }
 
         if (approve) {
@@ -215,7 +211,6 @@ public class OrderService {
         repo.save(order);
     }
 
-    // ===================== INVENTORY =====================
 
     @Retry(name = "inventoryRetry")
     @CircuitBreaker(name = "inventoryCB", fallbackMethod = "inventoryFallback")
@@ -229,7 +224,7 @@ public class OrderService {
     }
 
     public void inventoryFallback(OrderItem item, Throwable t) {
-        log.error("Inventory fallback for product {}", item.getProductId());
+        log.error("Inventory fallback for product {}", item.getProductId(), t);
         throw new InventoryException("Inventory service unavailable");
     }
 
@@ -248,27 +243,42 @@ public class OrderService {
         }
     }
 
-    // ===================== BUILD ITEMS =====================
 
     private List<OrderItem> buildOrderItems(OrderRequest request, Order order) {
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BadRequestException("Order must contain at least one item");
+        }
 
         List<OrderItem> items = new ArrayList<>();
 
         for (var i : request.getItems()) {
 
-            var product = inventory.getProduct(internalApiKey, i.getProductId());
+            try {
+                var product = inventory.getProduct(internalApiKey, i.getProductId());
 
-            if (product.getAvailableQuantity() < i.getQuantity()) {
-                throw new InventoryException("Insufficient stock for product " + i.getProductId());
+                if (product.getAvailableQuantity() < i.getQuantity()) {
+                    throw new InventoryException(
+                            "Insufficient stock for product " + i.getProductId()
+                    );
+                }
+
+                OrderItem item = new OrderItem();
+                item.setOrder(order);
+                item.setProductId(i.getProductId());
+                item.setQuantity(i.getQuantity());
+                item.setPrice(product.getPrice());
+
+                items.add(item);
+
+            } catch (InventoryException ex) {
+                throw ex;
+
+            } catch (Exception ex) {
+                throw new InventoryException(
+                        "Failed to fetch product details for product " + i.getProductId()
+                );
             }
-
-            OrderItem item = new OrderItem();
-            item.setOrder(order);
-            item.setProductId(i.getProductId());
-            item.setQuantity(i.getQuantity());
-            item.setPrice(product.getPrice());
-
-            items.add(item);
         }
 
         return items;
@@ -280,21 +290,22 @@ public class OrderService {
                 .sum();
     }
 
-    // ===================== USER =====================
 
     private Long getUserIdFromToken() {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         if (auth == null || !auth.isAuthenticated()) {
-            throw new RuntimeException("User not authenticated");
+            throw new UnauthorizedException("User not authenticated");
         }
 
         String email = auth.getName();
-        return userClient.getUserByEmail(email).getId();
+        try {
+            return userClient.getUserByEmail(email).getId();
+        } catch (Exception e) {
+            throw new UnauthorizedException("Failed to fetch user details");
+        }
     }
-
-    // ===================== UTIL =====================
 
     private void transition(Order order, OrderStatus next) {
         stateMachine.validate(order.getStatus(), next);
@@ -322,7 +333,6 @@ public class OrderService {
         );
     }
 
-    // ===================== FETCH =====================
 
     public List<OrderResponse> getAllOrdersResponse() {
         return repo.findAll()
@@ -334,13 +344,19 @@ public class OrderService {
     public OrderResponse getOrderResponseById(Long id) {
         return mapToResponse(
                 repo.findById(id)
-                        .orElseThrow(() -> new RuntimeException("Order not found"))
+                        .orElseThrow(() -> new OrderNotFoundException(id))
         );
     }
 
     public List<OrderResponse> getByStatus(String status) {
 
-        OrderStatus orderStatus = OrderStatus.valueOf(status);
+        OrderStatus orderStatus;
+
+        try {
+            orderStatus = OrderStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid order status: " + status);
+        }
 
         return repo.findByStatus(orderStatus)
                 .stream()

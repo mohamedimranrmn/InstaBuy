@@ -1,5 +1,8 @@
 package com.mphasis.userservice.service;
 
+import com.mphasis.userservice.exception.ConflictException;
+import com.mphasis.userservice.exception.ResourceNotFoundException;
+import com.mphasis.userservice.exception.UnauthorizedException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,7 +29,7 @@ public class AuthService {
     public String register(RegisterRequest request) {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("User already exists");
+            throw new ConflictException("User already exists");
         }
 
         User user = new User();
@@ -43,10 +46,10 @@ public class AuthService {
     public String login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new UnauthorizedException("Invalid credentials");
         }
 
         return jwtUtil.generateToken(user.getEmail(), user.getRole().name());
