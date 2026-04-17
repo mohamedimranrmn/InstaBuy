@@ -6,10 +6,10 @@ import org.springframework.web.bind.annotation.*;
 
 @FeignClient(
         name = "inventory-service",
-        url = "http://localhost:8888",
+        /*url = "http://localhost:8888",*/
         configuration = {
                 com.mphasis.orderservice.config.FeignConfig.class,
-                com.mphasis.orderservice.config.FeignHttpClientConfig.class
+                /*com.mphasis.orderservice.config.FeignHttpClientConfig.class*/
         }
 )
 public interface InventoryClient {

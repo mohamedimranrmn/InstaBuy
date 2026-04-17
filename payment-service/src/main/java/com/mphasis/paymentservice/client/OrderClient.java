@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 @FeignClient(
         name = "order-service",
-        url = "http://localhost:8082",
+        /*url = "http://localhost:8082",*/
         configuration = com.mphasis.paymentservice.config.FeignConfig.class
 )
 public interface OrderClient {
