@@ -19,6 +19,7 @@ public class Product {
 
     @Column(nullable = false)
     @Positive(message = "Price must be positive")
+    @Min(value = 0, message = "Price cannot be negative")
     private double price;
 
     @Column(nullable = false)
@@ -27,6 +28,8 @@ public class Product {
 
     @Version
     private int version;
+
+    private boolean deleted = false;
 
     public Long getProductId() {
         return productId;
@@ -58,5 +61,13 @@ public class Product {
 
     public void setAvailableQuantity(int availableQuantity) {
         this.availableQuantity = availableQuantity;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
     }
 }

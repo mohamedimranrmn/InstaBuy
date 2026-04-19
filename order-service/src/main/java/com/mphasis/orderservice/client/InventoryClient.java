@@ -18,6 +18,12 @@ public interface InventoryClient {
             @PathVariable("id") Long productId
     );
 
+    @DeleteMapping("/products/{id}")
+    void deleteProduct(
+            @RequestHeader("X-Internal-Key") String key,
+            @PathVariable("id") Long productId
+    );
+
     @PatchMapping("/products/{id}/increase")
     void increaseStock(
             @RequestHeader("X-Internal-Key") String key,

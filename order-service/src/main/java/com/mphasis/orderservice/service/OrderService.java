@@ -3,6 +3,7 @@ package com.mphasis.orderservice.service;
 import com.mphasis.orderservice.client.InventoryClient;
 import com.mphasis.orderservice.client.PaymentClient;
 import com.mphasis.orderservice.client.UserClient;
+import com.mphasis.orderservice.dao.OrderItemRepository;
 import com.mphasis.orderservice.dao.OrderRepository;
 import com.mphasis.orderservice.dto.*;
 import com.mphasis.orderservice.exception.*;
@@ -37,17 +38,20 @@ public class OrderService {
     private final PaymentClient paymentClient;
     private final UserClient userClient;
     private final OrderStateMachine stateMachine;
+    private final OrderItemRepository orderItemRepo;
 
     public OrderService(OrderRepository repo,
                         InventoryClient inventory,
                         PaymentClient paymentClient,
                         UserClient userClient,
+                        OrderItemRepository orderItemRepo,
                         OrderStateMachine stateMachine) {
         this.repo = repo;
         this.inventory = inventory;
         this.paymentClient = paymentClient;
         this.userClient = userClient;
         this.stateMachine = stateMachine;
+        this.orderItemRepo = orderItemRepo;
     }
 
 
@@ -113,7 +117,7 @@ public class OrderService {
         transition(order, OrderStatus.COMPLETED);
         repo.save(order);
 
-        log.info("Order {} → COMPLETED", orderId);
+        log.info("Order is {} → COMPLETED", orderId);
     }
 
 
@@ -181,7 +185,7 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         if (order.getStatus() != OrderStatus.CANCEL_REQUESTED) {
-            throw new InvalidStateTransitionException("Invalid state for refund decision");
+            throw new InvalidStateTransitionException("Refund decision already processed or invalid state");
         }
 
         if (approve) {
@@ -189,23 +193,21 @@ public class OrderService {
             transition(order, OrderStatus.REFUND_PENDING);
             repo.save(order);
 
-            rollbackInventory(order.getItems());
-
-            if (order.getStatus() == OrderStatus.REFUND_PENDING) {
-                paymentClient.refund(orderId);
-            }
+            paymentClient.refund(orderId);
 
             transition(order, OrderStatus.REFUNDED);
-            transition(order, OrderStatus.CANCELLED);
 
-            log.info("Order {} → REFUNDED → CANCELLED", orderId);
+            log.info("Order {} → REFUNDED", orderId);
 
         } else {
 
-            transition(order, OrderStatus.CANCELLED);
+            transition(order, OrderStatus.REFUND_REJECTED);
+
             order.setFailureReason("Refund rejected by admin");
 
-            log.info("Order {} refund rejected", orderId);
+            transition(order, OrderStatus.COMPLETED);
+
+            log.info("Order {} → REFUND_REJECTED → COMPLETED", orderId);
         }
 
         repo.save(order);
@@ -243,6 +245,27 @@ public class OrderService {
         }
     }
 
+    @Transactional
+    public void deleteProduct(Long productId) {
+
+        boolean exists = orderItemRepo.existsByProductIdAndOrderStatusIn(
+                productId,
+                List.of(
+                        OrderStatus.CREATED,
+                        OrderStatus.INVENTORY_RESERVED,
+                        OrderStatus.PAYMENT_PENDING,
+                        OrderStatus.COMPLETED
+                )
+        );
+
+        if (exists) {
+            throw new InvalidProductException("Product is used in active/completed orders");
+        }
+
+        inventory.deleteProduct(internalApiKey, productId);
+
+        log.info("Product {} deleted successfully", productId);
+    }
 
     private List<OrderItem> buildOrderItems(OrderRequest request, Order order) {
 
@@ -359,6 +382,16 @@ public class OrderService {
         }
 
         return repo.findByStatus(orderStatus)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    public List<OrderResponse> getOrdersForCurrentUser() {
+
+        Long userId = getUserIdFromToken();
+
+        return repo.findByUserId(userId)
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
