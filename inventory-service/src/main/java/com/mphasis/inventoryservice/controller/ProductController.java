@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -37,7 +36,57 @@ public class ProductController {
     @PostMapping
     public ResponseEntity<ProductResponse> addProduct(@RequestBody ProductRequest dto) {
         return ResponseEntity.ok(
-                ProductMapper.toDTO(service.addProduct(ProductMapper.toEntity(dto)))
+                ProductMapper.toDTO(
+                        service.addProduct(ProductMapper.toEntity(dto))
+                )
+        );
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteProduct(
+            @RequestHeader("X-Internal-Key") String key,
+            @PathVariable Long id) {
+
+        validateInternalKey(key);
+
+        service.deleteProduct(id);
+        return ResponseEntity.ok("Product deleted successfully");
+    }
+
+    @PatchMapping("/{id}/soft-delete")
+    public ResponseEntity<String> softDelete(
+            @RequestHeader("X-Internal-Key") String key,
+            @PathVariable Long id) {
+
+        validateInternalKey(key);
+        service.softDeleteProduct(id);
+
+        return ResponseEntity.ok("Product soft deleted");
+    }
+
+    @PatchMapping("/{id}/restore")
+    public ResponseEntity<String> restore(
+            @RequestHeader("X-Internal-Key") String key,
+            @PathVariable Long id) {
+
+        validateInternalKey(key);
+        service.restoreProduct(id);
+
+        return ResponseEntity.ok("Product restored");
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProductResponse> updateProduct(
+            @RequestHeader("X-Internal-Key") String key,
+            @PathVariable Long id,
+            @RequestBody ProductRequest dto) {
+
+        validateInternalKey(key);
+
+        Product updated = ProductMapper.toEntity(dto);
+
+        return ResponseEntity.ok(
+                ProductMapper.toDTO(service.updateProduct(id, updated))
         );
     }
 

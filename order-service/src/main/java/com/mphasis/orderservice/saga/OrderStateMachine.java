@@ -25,17 +25,19 @@ public class OrderStateMachine {
             Set.of(OrderStatus.CANCEL_REQUESTED),
 
             OrderStatus.CANCEL_REQUESTED,
-            Set.of(OrderStatus.REFUND_PENDING, OrderStatus.CANCELLED),
+            Set.of(OrderStatus.REFUND_PENDING, OrderStatus.REFUND_REJECTED),
 
             OrderStatus.REFUND_PENDING,
             Set.of(OrderStatus.REFUNDED),
+
+            OrderStatus.REFUND_REJECTED,
+            Set.of(OrderStatus.COMPLETED),
 
             OrderStatus.REFUNDED,
             Set.of(OrderStatus.CANCELLED),
 
             OrderStatus.FAILED,
             Set.of(OrderStatus.CANCELLED)
-
     );
 
     public void validate(OrderStatus current, OrderStatus next) {

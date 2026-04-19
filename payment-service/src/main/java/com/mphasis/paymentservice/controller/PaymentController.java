@@ -8,9 +8,11 @@ import com.mphasis.paymentservice.service.PaymentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "*")
+import java.util.List;
+
 @RestController
 @RequestMapping("/payments")
 public class PaymentController {
@@ -63,5 +65,16 @@ public class PaymentController {
     public ResponseEntity<Void> refund(@PathVariable Long orderId) {
         service.refund(orderId);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping
+    public ResponseEntity<PaymentResponse> getPayment(@RequestParam Long orderId) {
+        return ResponseEntity.ok(service.getPaymentByOrderId(orderId));
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<PaymentResponse>> getAllPayments() {
+        return ResponseEntity.ok(service.getAllPayments());
     }
 }

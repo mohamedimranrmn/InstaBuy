@@ -41,10 +41,16 @@ public class OrderController {
         return ResponseEntity.ok("Order marked as COMPLETED");
     }
 
-    @GetMapping
+    @GetMapping("/admin/all")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
-        log.info("Fetching all orders");
+        log.info("Fetching all orders (ADMIN)");
         return ResponseEntity.ok(service.getAllOrdersResponse());
+    }
+
+    @GetMapping
+    public ResponseEntity<List<OrderResponse>> getMyOrders() {
+        log.info("Fetching orders for logged-in user");
+        return ResponseEntity.ok(service.getOrdersForCurrentUser());
     }
 
     @GetMapping("/{id}")
@@ -80,5 +86,11 @@ public class OrderController {
         service.processRefundDecision(orderId, approve);
 
         return ResponseEntity.ok("Decision processed");
+    }
+
+    @DeleteMapping("/admin/products/{id}")
+    public ResponseEntity<String> deleteProduct(@PathVariable Long id) {
+        service.deleteProduct(id);
+        return ResponseEntity.ok("Deleted");
     }
 }

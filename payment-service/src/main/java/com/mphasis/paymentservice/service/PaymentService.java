@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -70,6 +71,34 @@ public class PaymentService {
         }
     }
 
+    public List<PaymentResponse> getAllPayments() {
+
+        return repo.findAll()
+                .stream()
+                .map(p -> new PaymentResponse(
+                        p.getId(),
+                        p.getStatus().name(),
+                        p.getTransactionId(),
+                        "Fetched",
+                        p.getAmount()
+                ))
+                .toList();
+    }
+
+    public PaymentResponse getPaymentByOrderId(Long orderId) {
+
+        Payment payment = repo.findByOrderId(orderId)
+                .orElseThrow(() -> new PaymentNotFoundException(orderId));
+
+        return new PaymentResponse(
+                payment.getId(),
+                payment.getStatus().name(),
+                payment.getTransactionId(),
+                "Fetched",
+                payment.getAmount()
+        );
+    }
+
     public PaymentResponse createRazorpayOrder(PaymentRequest request) {
 
         Long orderId = request.getOrderId();
@@ -91,6 +120,7 @@ public class PaymentService {
 
             if (p.getStatus() == PaymentStatus.SUCCESS) {
                 return new PaymentResponse(
+                        p.getId(),
                         "SUCCESS",
                         p.getTransactionId(),
                         "Payment already completed",
@@ -99,6 +129,7 @@ public class PaymentService {
             }
 
             return new PaymentResponse(
+                    p.getId(),
                     "PENDING",
                     p.getTransactionId(),
                     "Reusing existing payment",
@@ -133,6 +164,7 @@ public class PaymentService {
             log.info("Razorpay order created: {}", razorpayOrderId);
 
             return new PaymentResponse(
+                    payment.getId(),
                     "PENDING",
                     razorpayOrderId,
                     "Order created",
@@ -188,14 +220,9 @@ public class PaymentService {
 
     @Transactional
     public void refund(Long orderId) {
-        Optional<Payment> optional = repo.findByOrderId(orderId);
 
-        if (optional.isEmpty()) {
-            log.warn("No payment found for order {}", orderId);
-            return;
-        }
-
-        Payment payment = optional.get();
+        Payment payment = repo.findByOrderId(orderId)
+                .orElseThrow(() -> new PaymentNotFoundException(orderId));
 
         if (payment.getStatus() == PaymentStatus.REFUNDED) {
             log.info("Already refunded {}", orderId);
@@ -203,8 +230,9 @@ public class PaymentService {
         }
 
         if (payment.getStatus() != PaymentStatus.SUCCESS) {
-            log.warn("Skipping refund. Payment not SUCCESS for {}", orderId);
-            return;
+            throw new InvalidPaymentStateException(
+                    "Cannot refund payment in state: " + payment.getStatus()
+            );
         }
 
         try {

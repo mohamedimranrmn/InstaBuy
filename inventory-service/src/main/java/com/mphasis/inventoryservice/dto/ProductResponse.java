@@ -6,13 +6,16 @@ public class ProductResponse {
     private String productName;
     private double price;
     private int availableQuantity;
+    private boolean deleted;
 
     public ProductResponse(Long productId, String productName,
-                              double price, int availableQuantity) {
+                           double price, int availableQuantity,
+                           boolean deleted) {
         this.productId = productId;
         this.productName = productName;
         this.price = price;
         this.availableQuantity = availableQuantity;
+        this.deleted = deleted;
     }
 
     public Long getProductId() {
@@ -29,5 +32,9 @@ public class ProductResponse {
 
     public int getAvailableQuantity() {
         return availableQuantity;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
     }
 }

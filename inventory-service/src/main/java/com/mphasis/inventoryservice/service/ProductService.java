@@ -22,6 +22,15 @@ public class ProductService {
 
     @Transactional
     public Product addProduct(Product product) {
+
+        if (product.getPrice() < 0) {
+            throw new InvalidProductException("Price cannot be negative");
+        }
+
+        if (product.getAvailableQuantity() < 0) {
+            throw new InvalidProductException("Quantity cannot be negative");
+        }
+
         return repo.save(product);
     }
 
@@ -29,14 +38,39 @@ public class ProductService {
     public void deleteProduct(Long id) {
         Product product = repo.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException("Product not found"));
-
         repo.delete(product);
+    }
+
+    @Transactional
+    public void softDeleteProduct(Long id) {
+        Product product = repo.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException("Product not found"));
+
+        product.setDeleted(true);
+        repo.save(product);
+    }
+
+    @Transactional
+    public void restoreProduct(Long id) {
+        Product product = repo.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException("Product not found"));
+
+        product.setDeleted(false);
+        repo.save(product);
     }
 
     @Transactional
     public Product updateProduct(Long id, Product updated) {
         Product product = repo.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException("Product not found"));
+
+        if (updated.getPrice() < 0) {
+            throw new InvalidProductException("Price cannot be negative");
+        }
+
+        if (updated.getAvailableQuantity() < 0) {
+            throw new InvalidProductException("Quantity cannot be negative");
+        }
 
         product.setProductName(updated.getProductName());
         product.setPrice(updated.getPrice());
