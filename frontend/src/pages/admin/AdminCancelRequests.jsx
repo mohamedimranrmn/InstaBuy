@@ -1,62 +1,14 @@
 import { useEffect, useState } from "react";
 import axios from "../../api/axios";
-
-const s = {
-  page: { fontFamily: "'Segoe UI', sans-serif", color: "#111" },
-  heading: { fontSize: "1.4rem", fontWeight: 700, margin: "0 0 0.25rem", color: "#111" },
-  sub: { fontSize: "0.8rem", color: "#666", margin: "0 0 1.5rem" },
-  emptyCard: {
-    background: "#fff",
-    border: "1px solid #d5d9d9",
-    borderRadius: 8,
-    padding: "3rem",
-    textAlign: "center",
-    color: "#555",
-  },
-  card: {
-    background: "#fff",
-    border: "1px solid #d5d9d9",
-    borderRadius: 8,
-    marginBottom: "1rem",
-    overflow: "hidden",
-  },
-  cardHeader: {
-    background: "#f0f2f2",
-    borderBottom: "1px solid #d5d9d9",
-    padding: "0.75rem 1.25rem",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  cardBody: { padding: "1rem 1.25rem" },
-  itemRow: {
-    display: "flex",
-    gap: "2rem",
-    fontSize: "0.85rem",
-    padding: "0.35rem 0",
-    borderBottom: "1px solid #f5f5f5",
-    color: "#333",
-  },
-  btn: (color, bg, border) => ({
-    flex: 1,
-    padding: "0.55rem",
-    borderRadius: 6,
-    border: `1px solid ${border}`,
-    background: bg,
-    color,
-    fontSize: "0.82rem",
-    fontWeight: 600,
-    cursor: "pointer",
-  }),
-};
+import { ADMIN_BASE_CSS } from "./adminStyles";
 
 export default function AdminCancelRequests() {
-  const [data, setData]         = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(null);
 
   useEffect(() => {
-    axios.get("/orders/cancel-requests").then((res) => {
+    axios.get("/orders/cancel-requests").then(res => {
       setData(res.data);
       setLoading(false);
     });
@@ -66,75 +18,69 @@ export default function AdminCancelRequests() {
     setProcessing(orderId);
     try {
       await axios.post(`/orders/refund-decision/${orderId}?approve=${approve}`);
-      setData((prev) => prev.filter((o) => o.orderId !== orderId));
+      setData(prev => prev.filter(o => o.orderId !== orderId));
     } finally {
       setProcessing(null);
     }
   };
 
   return (
-    <div style={s.page}>
-      <h1 style={s.heading}>Refund Requests</h1>
-      <p style={s.sub}>
-        {loading ? "Loading…" : `${data.length} pending ${data.length === 1 ? "request" : "requests"}`}
+    <div className="adm-page">
+      <style>{ADMIN_BASE_CSS}</style>
+
+      <div className="adm-eyebrow">Refund Queue</div>
+      <h1 className="adm-title">Refund Requests</h1>
+      <p className="adm-sub">
+        {loading ? "Loading…" : `${data.length} pending request${data.length !== 1 ? "s" : ""}`}
       </p>
+      <hr className="adm-rule" />
 
       {loading ? (
-        <p style={{ color: "#666" }}>Loading…</p>
+        <div className="adm-loading">Loading queue…</div>
       ) : data.length === 0 ? (
-        <div style={s.emptyCard}>
-          <p style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>All clear</p>
-          <p style={{ color: "#888", margin: 0 }}>No pending refund requests at this time.</p>
+        <div className="adm-empty" style={{ background: "#fff", border: "1px solid #ddd8cc", padding: "4rem 2rem" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "1rem", opacity: 0.35 }}>◉</div>
+          <div style={{ fontFamily: "'Libre Baskerville', serif", color: "#888078", fontSize: "0.95rem" }}>Queue is empty</div>
+          <div style={{ fontSize: "0.82rem", color: "#bbb4a8", marginTop: "0.4rem" }}>No pending refund requests at this time.</div>
         </div>
       ) : (
-        data.map((o) => {
+        data.map(o => {
           const busy = processing === o.orderId;
           return (
-            <div key={o.orderId} style={s.card}>
-              {/* Header */}
-              <div style={s.cardHeader}>
-                <div>
-                  <span style={{ fontWeight: 700 }}>Order #{o.orderId}</span>
-                  <span style={{ color: "#666", fontSize: "0.8rem", marginLeft: "1rem" }}>
-                    User #{o.userId}
-                  </span>
+            <div key={o.orderId} className="adm-card">
+              <div className="adm-card-head">
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <span className="adm-id">Order #{o.orderId}</span>
+                  <span className="adm-chip">User #{o.userId}</span>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontWeight: 700, color: "#b12704" }}>
-                    ₹{o.totalAmount?.toLocaleString("en-IN")}
-                  </div>
-                  <div style={{ fontSize: "0.75rem", color: "#666" }}>
-                    {new Date(o.createdAt).toLocaleDateString("en-IN", {
-                      day: "numeric", month: "short", year: "numeric",
-                    })}
+                  <div className="adm-amount">₹{o.totalAmount?.toLocaleString("en-IN")}</div>
+                  <div className="adm-date">
+                    {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                   </div>
                 </div>
               </div>
 
-              {/* Items + actions */}
-              <div style={s.cardBody}>
-                <p style={{ fontSize: "0.75rem", color: "#555", fontWeight: 600, marginBottom: "0.5rem" }}>
-                  Order Items
-                </p>
+              <div className="adm-card-body">
+                <div className="adm-items-label">Order Items</div>
                 {o.items?.map((item, i) => (
-                  <div key={i} style={s.itemRow}>
-                    <span>Product #{item.productId}</span>
-                    <span style={{ color: "#666" }}>× {item.quantity}</span>
-                    <span style={{ marginLeft: "auto", fontWeight: 600 }}>
-                      ₹{(item.price * item.quantity).toLocaleString("en-IN")}
-                    </span>
+                  <div key={i} className="adm-item-row">
+                    <span className="adm-item-prod">Product #{item.productId}</span>
+                    <span className="adm-item-qty">Qty: {item.quantity}</span>
+                    <span className="adm-item-sub">₹{(item.price * item.quantity).toLocaleString("en-IN")}</span>
                   </div>
                 ))}
 
-                <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+                <div className="adm-action-row">
                   <button
+                    className="adm-action-btn adm-action-approve"
                     disabled={busy || o.status !== "CANCEL_REQUESTED"}
                     onClick={() => decide(o.orderId, true)}
                   >
                     {busy ? "Processing…" : "✓ Approve Refund"}
                   </button>
-
                   <button
+                    className="adm-action-btn adm-action-reject"
                     disabled={busy || o.status !== "CANCEL_REQUESTED"}
                     onClick={() => decide(o.orderId, false)}
                   >

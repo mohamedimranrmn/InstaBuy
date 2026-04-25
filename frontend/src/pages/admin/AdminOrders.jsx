@@ -1,261 +1,289 @@
 import { useEffect, useState } from "react";
 import axios from "../../api/axios";
-
-const s = {
-  page: { fontFamily: "'Segoe UI', sans-serif", color: "#111" },
-  heading: { fontSize: "1.4rem", fontWeight: 700, margin: "0 0 0.25rem", color: "#111" },
-  sub: { fontSize: "0.8rem", color: "#666", margin: "0 0 1.25rem" },
-  filters: { display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "1rem" },
-  filterBtn: (active) => ({
-    padding: "0.35rem 0.85rem",
-    borderRadius: 20,
-    border: active ? "1px solid #1b2a4a" : "1px solid #d5d9d9",
-    background: active ? "#1b2a4a" : "#fff",
-    color: active ? "#fff" : "#444",
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    cursor: "pointer",
-  }),
-  card: { background: "#fff", border: "1px solid #d5d9d9", borderRadius: 8, overflow: "hidden" },
-  th: {
-    padding: "0.65rem 1rem",
-    textAlign: "left",
-    fontSize: "0.75rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    color: "#444",
-    background: "#f0f2f2",
-    borderBottom: "1px solid #d5d9d9",
-    whiteSpace: "nowrap",
-  },
-  td: { padding: "0.85rem 1rem", fontSize: "0.875rem", borderBottom: "1px solid #f0f2f2", verticalAlign: "middle" },
-  badge: (color, bg) => ({
-    display: "inline-block",
-    padding: "0.2rem 0.65rem",
-    borderRadius: 20,
-    fontSize: "0.7rem",
-    fontWeight: 700,
-    color,
-    background: bg,
-    whiteSpace: "nowrap",
-  }),
-  expandBox: {
-    background: "#fafafa",
-    border: "1px solid #eee",
-    borderRadius: 6,
-    padding: "0.75rem 1rem",
-    margin: "0 0 0.5rem",
-  },
-  actionBtn: (color, bg, border) => ({
-    padding: "0.35rem 0.85rem",
-    borderRadius: 6,
-    border: `1px solid ${border}`,
-    background: bg,
-    color,
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    marginRight: "0.4rem",
-  }),
-};
-
-const STATUS_MAP = {
-  COMPLETED:          { color: "#007600", bg: "#e6f4e6" },
-  FAILED:             { color: "#b12704", bg: "#fde8e4" },
-  PAYMENT_PENDING:    { color: "#c45500", bg: "#fef3e9" },
-  CREATED:            { color: "#c45500", bg: "#fef3e9" },
-  INVENTORY_RESERVED: { color: "#0066c0", bg: "#e6f0fb" },
-  CANCELLED:          { color: "#555",    bg: "#f0f0f0" },
-  CANCEL_REQUESTED:   { color: "#7a5900", bg: "#fff8e0" },
-  REFUND_PENDING:     { color: "#c45500", bg: "#fef3e9" },
-  REFUNDED:           { color: "#007600", bg: "#e6f4e6" },
-  REFUND_REJECTED:    { color: "#b12704", bg: "#fde8e4" },
-};
+import { ADMIN_BASE_CSS } from "./adminStyles";
 
 const FILTERS = ["ALL", "COMPLETED", "PAYMENT_PENDING", "FAILED", "CANCELLED", "CANCEL_REQUESTED", "REFUNDED"];
 
+const BADGE_MAP = {
+  COMPLETED: "adm-badge-green",
+  FAILED: "adm-badge-red",
+  PAYMENT_PENDING: "adm-badge-amber",
+  CREATED: "adm-badge-amber",
+  INVENTORY_RESERVED: "adm-badge-blue",
+  CANCELLED: "adm-badge-gray",
+  CANCEL_REQUESTED: "adm-badge-amber",
+  REFUNDED: "adm-badge-green",
+  REFUND_PENDING: "adm-badge-amber",
+  REFUND_REJECTED: "adm-badge-red",
+};
+
 function StatusBadge({ status }) {
-  const cfg = STATUS_MAP[status?.toUpperCase()] || { color: "#555", bg: "#f0f0f0" };
-  return <span style={s.badge(cfg.color, cfg.bg)}>{status?.replace(/_/g, " ")}</span>;
+  const cls = BADGE_MAP[status?.toUpperCase()] || "adm-badge-gray";
+  return <span className={`adm-badge ${cls}`}>{status?.replace(/_/g, " ")}</span>;
 }
 
 export default function AdminOrders() {
-  const [orders, setOrders]     = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [filter, setFilter]     = useState("ALL");
-  const [expanded, setExpanded] = useState(null);
-  const [processing, setProcessing] = useState(null); // orderId being acted on
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("ALL");
+  const [processing, setProcessing] = useState(null);
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  const loadOrders = () => {
+  const load = () => {
     setLoading(true);
-    axios
-      .get("/orders/admin/all")
-      .then((res) => setOrders(res.data.sort((a, b) => b.orderId - a.orderId)))
+    axios.get("/orders/admin/all")
+      .then(res => setOrders(res.data.sort((a, b) => b.orderId - a.orderId)))
       .finally(() => setLoading(false));
   };
 
-  const approveRefund = async (orderId) => {
-    setProcessing(orderId);
+  useEffect(() => { load(); }, []);
+
+  const decide = async (id, approve) => {
+    setProcessing(id);
     try {
-      await axios.post(`/orders/refund-decision/${orderId}?approve=true`);
-      loadOrders();
-    } finally {
-      setProcessing(null);
+      await axios.post(`/orders/refund-decision/${id}?approve=${approve}`);
+      load();
     }
+    finally { setProcessing(null); }
   };
 
-  const rejectRefund = async (orderId) => {
-    setProcessing(orderId);
-    try {
-      await axios.post(`/orders/refund-decision/${orderId}?approve=false`);
-      loadOrders();
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const filtered =
-    filter === "ALL" ? orders : orders.filter((o) => o.status === filter);
-
-  const countOf = (f) =>
-    f === "ALL" ? orders.length : orders.filter((o) => o.status === f).length;
+  const filtered = filter === "ALL" ? orders : orders.filter(o => o.status === filter);
+  const countOf = f => f === "ALL" ? orders.length : orders.filter(o => o.status === f).length;
 
   return (
-    <div style={s.page}>
-      <h1 style={s.heading}>All Orders</h1>
-      <p style={s.sub}>{orders.length} total orders</p>
+    <div className="adm-page">
+      <style>{ADMIN_BASE_CSS}</style>
 
-      {/* Filter pills */}
-      <div style={s.filters}>
-        {FILTERS.map((f) => (
-          <button key={f} style={s.filterBtn(filter === f)} onClick={() => setFilter(f)}>
+      {/* Card Styles */}
+      <style>{`
+        .adm-cards-wrap {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 1rem;
+        }
+
+        .adm-card {
+          background: linear-gradient(145deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.8rem;
+          transition: all 0.2s ease;
+        }
+
+        .adm-card:hover {
+          transform: translateY(-3px);
+          border-color: var(--accent-blue);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+        }
+
+        .adm-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .adm-order-id {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--accent-blue);
+          font-family: 'JetBrains Mono', monospace;
+        }
+
+        .adm-user-id {
+          font-size: 0.72rem;
+          color: #888078;
+        }
+
+        .adm-divider {
+          height: 1px;
+          background: var(--border);
+          opacity: 0.6;
+        }
+
+        .adm-meta {
+          display: flex;
+          justify-content: space-between;
+        }
+
+        .adm-label {
+          font-size: 0.65rem;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+        }
+
+        .adm-value {
+          font-size: 0.85rem;
+        }
+
+        .adm-price {
+          font-weight: 700;
+          color: var(--accent-green);
+        }
+
+        .adm-items {
+          border-top: 1px solid var(--border);
+          padding-top: 0.5rem;
+        }
+
+        .adm-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.3rem 0;
+        }
+
+        .adm-item-left {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .adm-prod {
+          font-size: 0.78rem;
+          font-weight: 500;
+        }
+
+        .adm-qty {
+          font-size: 0.68rem;
+          color: var(--text-secondary);
+        }
+
+        .adm-item-right {
+          font-size: 0.8rem;
+          font-weight: 600;
+        }
+
+        .adm-error {
+          background: rgba(244,63,94,0.08);
+          border: 1px solid rgba(244,63,94,0.2);
+          padding: 0.4rem 0.6rem;
+          border-radius: 6px;
+          font-size: 0.72rem;
+          color: #f87171;
+        }
+
+        .adm-card-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.4rem;
+          margin-top: 0.4rem;
+        }
+
+        .adm-muted {
+          font-size: 0.7rem;
+          color: #aaa;
+        }
+      `}</style>
+
+      <div className="adm-eyebrow">Order Management</div>
+      <h1 className="adm-title">All Orders</h1>
+      <p className="adm-sub">{loading ? "Loading…" : `${orders.length} total records`}</p>
+      <hr className="adm-rule" />
+
+      <div className="adm-filters">
+        {FILTERS.map(f => (
+          <button key={f} className={`adm-filter-btn${filter === f ? " active" : ""}`} onClick={() => setFilter(f)}>
             {f.replace(/_/g, " ")} ({countOf(f)})
           </button>
         ))}
       </div>
 
       {loading ? (
-        <p style={{ color: "#666" }}>Loading orders…</p>
+        <div className="adm-loading">Loading orders…</div>
       ) : filtered.length === 0 ? (
-        <p style={{ color: "#666" }}>No orders found.</p>
+        <div className="adm-empty">No records found.</div>
       ) : (
-        <div style={s.card}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Order ID", "User ID", "Status", "Total", "Date", "Items", "Actions"].map((h) => (
-                    <th key={h} style={s.th}>{h}</th>
+        <div className="adm-cards-wrap">
+          {filtered.map(o => {
+            const isCR = o.status === "CANCEL_REQUESTED";
+            const busy = processing === o.orderId;
+
+            return (
+              <div key={o.orderId} className="adm-card">
+
+                {/* Header */}
+                <div className="adm-card-header">
+                  <div>
+                    <div className="adm-order-id">#{o.orderId}</div>
+                    <div className="adm-user-id">User #{o.userId}</div>
+                  </div>
+                  <StatusBadge status={o.status} />
+                </div>
+
+                {/* Divider */}
+                <div className="adm-divider" />
+
+                {/* Meta Info */}
+                <div className="adm-meta">
+                  <div>
+                    <div className="adm-label">Total</div>
+                    <div className="adm-value adm-price">
+                      ₹{o.totalAmount?.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="adm-label">Date</div>
+                    <div className="adm-value">
+                      {new Date(o.createdAt).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric"
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div className="adm-items">
+                  {o.items?.map((item, i) => (
+                    <div key={i} className="adm-item">
+                      <div className="adm-item-left">
+                        <div className="adm-prod">Product #{item.productId}</div>
+                        <div className="adm-qty">Qty: {item.quantity}</div>
+                      </div>
+                      <div className="adm-item-right">
+                        ₹{(item.price * item.quantity).toLocaleString("en-IN")}
+                      </div>
+                    </div>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((o) => {
-                  const isCancelReq = o.status === "CANCEL_REQUESTED";
-                  const busy = processing === o.orderId;
+                </div>
 
-                  return (
+                {/* Failure */}
+                {o.failureReason && (
+                  <div className="adm-error">
+                    ⚠ {o.failureReason}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="adm-card-actions">
+                  {isCR ? (
                     <>
-                      <tr
-                        key={o.orderId}
-                        style={{ background: isCancelReq ? "#fffdf0" : "#fff" }}
+                      <button
+                        className="adm-btn adm-btn-green"
+                        disabled={busy}
+                        onClick={() => decide(o.orderId, true)}
                       >
-                        <td style={s.td}>
-                          <span style={{ fontWeight: 700, color: "#0066c0" }}>#{o.orderId}</span>
-                        </td>
-                        <td style={{ ...s.td, color: "#555" }}>#{o.userId}</td>
-                        <td style={s.td}><StatusBadge status={o.status} /></td>
-                        <td style={{ ...s.td, fontWeight: 600, color: "#007600" }}>
-                          ₹{o.totalAmount?.toLocaleString("en-IN")}
-                        </td>
-                        <td style={{ ...s.td, color: "#555", fontSize: "0.8rem" }}>
-                          {new Date(o.createdAt).toLocaleDateString("en-IN", {
-                            day: "numeric", month: "short", year: "numeric",
-                          })}
-                        </td>
-                        <td style={s.td}>
-                          <button
-                            style={s.actionBtn("#0066c0", "#fff", "#d5d9d9")}
-                            onClick={() => setExpanded(expanded === o.orderId ? null : o.orderId)}
-                          >
-                            {expanded === o.orderId ? "▲ Hide" : "▼ View"}
-                          </button>
-                        </td>
-
-                        {/* ── ADMIN ACTIONS COLUMN ── */}
-                        <td style={s.td}>
-                          {isCancelReq ? (
-                            <>
-                              <button
-                                disabled={busy}
-                                style={s.actionBtn("#fff", busy ? "#aaa" : "#007600", busy ? "#aaa" : "#007600")}
-                                onClick={() => approveRefund(o.orderId)}
-                              >
-                                {busy ? "…" : "✓ Approve Refund"}
-                              </button>
-                              <button
-                                disabled={busy}
-                                style={s.actionBtn("#fff", busy ? "#aaa" : "#b12704", busy ? "#aaa" : "#b12704")}
-                                onClick={() => rejectRefund(o.orderId)}
-                              >
-                                {busy ? "…" : "✕ Reject Refund"}
-                              </button>
-                            </>
-                          ) : (
-                            <span style={{ color: "#aaa", fontSize: "0.78rem" }}>—</span>
-                          )}
-                        </td>
-                      </tr>
-
-                      {/* Expandable items row */}
-                      {expanded === o.orderId && (
-                        <tr key={`${o.orderId}-exp`}>
-                          <td colSpan={7} style={{ padding: "0 1rem 0.75rem", background: "#fafafa" }}>
-                            <div style={s.expandBox}>
-                              <p style={{ fontSize: "0.78rem", color: "#555", marginBottom: "0.5rem", fontWeight: 600 }}>
-                                Order Items
-                              </p>
-                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-                                <thead>
-                                  <tr>
-                                    {["Product ID", "Qty", "Unit Price", "Subtotal"].map((h) => (
-                                      <th key={h} style={{ textAlign: "left", padding: "0.25rem 0.5rem", color: "#666", fontWeight: 600 }}>{h}</th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {o.items?.map((item, i) => (
-                                    <tr key={i} style={{ borderTop: "1px solid #eee" }}>
-                                      <td style={{ padding: "0.35rem 0.5rem" }}>#{item.productId}</td>
-                                      <td style={{ padding: "0.35rem 0.5rem" }}>{item.quantity}</td>
-                                      <td style={{ padding: "0.35rem 0.5rem" }}>₹{item.price?.toLocaleString("en-IN")}</td>
-                                      <td style={{ padding: "0.35rem 0.5rem", fontWeight: 600 }}>
-                                        ₹{(item.price * item.quantity).toLocaleString("en-IN")}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              {o.failureReason && (
-                                <p style={{ color: "#b12704", marginTop: "0.5rem", fontSize: "0.82rem" }}>
-                                  ⚠ {o.failureReason}
-                                </p>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
+                        ✓ Approve
+                      </button>
+                      <button
+                        className="adm-btn adm-btn-red"
+                        disabled={busy}
+                        onClick={() => decide(o.orderId, false)}
+                      >
+                        ✕ Reject
+                      </button>
                     </>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    <span className="adm-muted">No actions</span>
+                  )}
+                </div>
+
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
