@@ -26,10 +26,13 @@ public class Product {
     @Min(value = 0, message = "Stock cannot be negative")
     private int availableQuantity;
 
-    @Version
-    private int version;
+    @Column
+    private String imageUrl;
 
     private boolean deleted = false;
+
+    @Version
+    private int version;
 
     public Long getProductId() {
         return productId;
@@ -69,5 +72,13 @@ public class Product {
 
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }

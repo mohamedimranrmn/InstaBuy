@@ -6,17 +6,16 @@ import org.springframework.web.bind.annotation.*;
 
 @FeignClient(
         name = "order-service",
-        /*url = "http://localhost:8082",*/
         configuration = com.mphasis.paymentservice.config.FeignConfig.class
 )
 public interface OrderClient {
 
-    @GetMapping("/orders/{id}")
-    OrderResponse getOrder(@PathVariable("id") Long id);
+    @GetMapping("/orders/{orderId}")
+    OrderResponse getOrder(@PathVariable("orderId") Long orderId);
 
-    @PostMapping("/orders/confirm/{id}")
-    void confirmOrder(@PathVariable("id") Long id);
+    @PostMapping("/orders/confirm/{orderId}")
+    void confirmOrder(@PathVariable("orderId") Long orderId);
 
     @PostMapping("/orders/fail/{orderId}")
-    void failOrder(@PathVariable Long orderId);
+    void failOrder(@PathVariable("orderId") Long orderId);
 }

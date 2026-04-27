@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import com.mphasis.userservice.model.User;
 import com.mphasis.userservice.service.UserService;
 
+
 @RestController
 @RequestMapping("/users")
 public class UserController {
@@ -55,6 +56,13 @@ public class UserController {
         }
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/admin/delete/{id}")
+    public ResponseEntity<String> deleteUser(@PathVariable Long id) {
+        userService.deleteUserById(id);
+        return ResponseEntity.ok("User deleted successfully");
+    }
+
     @PatchMapping("/{id}/soft-delete")
     public ResponseEntity<String> softDeleteUser(
             @RequestHeader("X-Internal-Key") String key,
@@ -75,5 +83,16 @@ public class UserController {
         userService.restoreUser(id);
 
         return ResponseEntity.ok("User restored");
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteUser(
+            @RequestHeader("X-Internal-Key") String key,
+            @PathVariable Long id) {
+
+        validateInternalKey(key);
+        userService.deleteUser(id);
+
+        return ResponseEntity.ok("User permanently deleted");
     }
 }

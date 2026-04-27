@@ -1,9 +1,8 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-
-import Home from "./pages/Home";
+import AdminLogs from "./pages/admin/AdminLogs";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Products from "./pages/Products";
@@ -19,6 +18,30 @@ import AdminPayments from "./pages/admin/AdminPayments";
 import AdminCancelRequests from "./pages/admin/AdminCancelRequests";
 import AdminUsers from "./pages/admin/AdminUsers";
 
+/* 🔹 Redirect based on auth */
+const RootRedirect = () => {
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+
+  if (!token) return <Navigate to="/login" />;
+
+  if (role === "ADMIN") return <Navigate to="/admin" />;
+
+  return <Navigate to="/products" />;
+};
+
+/* 🔹 Protect user routes */
+const ProtectedUserRoute = ({ children }) => {
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+
+  if (!token) return <Navigate to="/login" />;
+
+  if (role === "ADMIN") return <Navigate to="/admin" />;
+
+  return children;
+};
+
 function App() {
   return (
     <BrowserRouter>
@@ -26,16 +49,59 @@ function App() {
 
         <Navbar />
 
-        {/* ✅ THIS FIXES THE FOOTER */}
         <div className="flex-grow-1">
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
+
+            {/* Root redirect */}
+            <Route path="/" element={<RootRedirect />} />
+
+            {/* Auth routes */}
+            <Route
+              path="/login"
+              element={
+                localStorage.getItem("token")
+                  ? <RootRedirect />
+                  : <Login />
+              }
+            />
             <Route path="/register" element={<Register />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/orders" element={<Orders />} />
+
+            {/* User routes */}
+            <Route
+              path="/products"
+              element={
+                <ProtectedUserRoute>
+                  <Products />
+                </ProtectedUserRoute>
+              }
+            />
+
+            <Route
+              path="/cart"
+              element={
+                <ProtectedUserRoute>
+                  <Cart />
+                </ProtectedUserRoute>
+              }
+            />
+
+            <Route
+              path="/checkout"
+              element={
+                <ProtectedUserRoute>
+                  <Checkout />
+                </ProtectedUserRoute>
+              }
+            />
+
+            <Route
+              path="/orders"
+              element={
+                <ProtectedUserRoute>
+                  <Orders />
+                </ProtectedUserRoute>
+              }
+            />
 
             {/* Admin section */}
             <Route
@@ -52,7 +118,9 @@ function App() {
               <Route path="payments" element={<AdminPayments />} />
               <Route path="cancel-requests" element={<AdminCancelRequests />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="logs" element={<AdminLogs />} />
             </Route>
+
           </Routes>
         </div>
 

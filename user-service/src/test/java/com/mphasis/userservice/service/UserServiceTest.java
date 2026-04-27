@@ -3,6 +3,7 @@ package com.mphasis.userservice.service;
 import com.mphasis.userservice.dao.UserRepository;
 import com.mphasis.userservice.model.Role;
 import com.mphasis.userservice.model.User;
+import com.mphasis.userservice.util.LogClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -23,13 +24,12 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        userService = new UserService();
 
         userRepository = mock(UserRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
+        LogClient logClient = mock(LogClient.class);
 
-        ReflectionTestUtils.setField(userService, "userRepository", userRepository);
-        ReflectionTestUtils.setField(userService, "passwordEncoder", passwordEncoder);
+        userService = new UserService(userRepository, passwordEncoder, logClient);
     }
 
     @Test

@@ -19,10 +19,22 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        ex.printStackTrace();
         return ResponseEntity.status(500)
                 .body(new ErrorResponse(
                         "INTERNAL_SERVER_ERROR",
-                        "Something went wrong",
+                        ex.getMessage(),
+                        System.currentTimeMillis()
+                ));
+    }
+
+    @ExceptionHandler(feign.FeignException.class)
+    public ResponseEntity<ErrorResponse> handleFeign(feign.FeignException ex) {
+
+        return ResponseEntity.status(ex.status())
+                .body(new ErrorResponse(
+                        "DOWNSTREAM_SERVICE_ERROR",
+                        ex.getMessage(),
                         System.currentTimeMillis()
                 ));
     }

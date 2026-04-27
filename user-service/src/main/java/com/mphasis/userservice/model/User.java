@@ -20,8 +20,8 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    @Column(nullable = false )
-    private boolean isDeleted;
+    @Column(nullable = false)
+    private boolean deleted = false;
 
     public User() {}
 
@@ -41,10 +41,10 @@ public class User {
     public void setRole(Role role) { this.role = role; }
 
     public boolean isDeleted() {
-        return isDeleted;
+        return deleted;
     }
 
     public void setDeleted(boolean deleted) {
-        isDeleted = deleted;
+        this.deleted = deleted;
     }
 }

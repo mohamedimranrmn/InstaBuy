@@ -312,14 +312,6 @@ export default function Orders() {
                         ↩ Request Refund
                       </button>
                     )}
-                {order.status?.toUpperCase() === "FAILED" && (
-                  <button
-                    className="ib-action-btn pay"
-                    onClick={() => handlePayNow(order)}
-                  >
-                    🔁 Retry Payment
-                  </button>
-                )}
                   </div>
                 </div>
               </div>

@@ -2,149 +2,157 @@ import { useEffect, useState } from "react";
 import axios from "../../api/axios";
 
 const css = `
-  .users-page { animation: fadeUp 0.4s ease; }
-  @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .users-page { animation: fadeUp 0.35s ease; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
-  .page-header { margin-bottom: 1.75rem; }
-  .page-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--accent-blue); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.4rem; }
-  .page-title { font-family: 'Orbitron', monospace; font-size: 1.6rem; font-weight: 700; color: #fff; }
-  .page-sub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.35rem; font-family: 'JetBrains Mono', monospace; }
+  .page-header { margin-bottom: 1.5rem; display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
+  .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.03em; }
+  .page-sub { font-size: 0.83rem; color: var(--text-secondary); margin-top: 0.3rem; }
 
-  .toast-msg { padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.82rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; margin-bottom: 1.25rem; border: 1px solid; display: flex; align-items: center; gap: 0.5rem; }
-  .toast-success { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); color: var(--accent-green); }
-  .toast-error { background: rgba(244,63,94,0.08); border-color: rgba(244,63,94,0.3); color: var(--accent-red); }
+  .toast-msg {
+    padding:0.75rem 1rem; border-radius:var(--radius-lg); font-size:0.83rem;
+    font-weight:600; margin-bottom:1rem; border:1px solid;
+    display:flex; align-items:center; gap:0.625rem; box-shadow:var(--shadow-sm);
+  }
+  .toast-success { background:#EDFAF4; border-color:rgba(12,170,110,0.25); color:#0CAA6E; }
+  .toast-error   { background:#FEF2F2; border-color:rgba(220,53,69,0.25); color:#DC3545; }
 
   .create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
+  @media(max-width:680px) { .create-grid { grid-template-columns: 1fr; } }
 
   .create-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    backdrop-filter: blur(10px);
-    position: relative;
-    overflow: hidden;
+    border-radius: var(--radius-xl);
+    padding: 1.375rem;
+    box-shadow: var(--shadow-sm);
+    position: relative; overflow: hidden;
   }
-  .create-card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; }
-  .create-card.admin-card::before { background: linear-gradient(90deg, transparent, var(--accent-blue), transparent); }
-  .create-card.customer-card::before { background: linear-gradient(90deg, transparent, var(--accent-gold), transparent); }
+  .create-card::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:3px;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+  .create-card.admin-card::before  { background: linear-gradient(90deg, #4361EE, #7B8FF7); }
+  .create-card.customer-card::before { background: linear-gradient(90deg, #D97706, #FBBF24); }
 
-  .create-card-title { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 1.1rem; display: flex; align-items: center; gap: 0.5rem; }
-  .create-card-title.blue { color: var(--accent-blue); }
-  .create-card-title.gold { color: var(--accent-gold); }
-  .create-card-title::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 6px currentColor; }
+  .create-card-header { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 1.125rem; padding-top: 0.25rem; }
+  .card-header-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display:flex; align-items:center; justify-content:center; font-size:0.9rem;
+  }
+  .card-header-icon.blue { background: #EEF2FF; }
+  .card-header-icon.amber { background: #FFFBEB; }
+  .create-card-title { font-size: 0.885rem; font-weight: 700; }
+  .create-card-title.blue { color: #4361EE; }
+  .create-card-title.amber { color: #D97706; }
 
-  .form-field { margin-bottom: 0.75rem; }
-  .form-label { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--text-secondary); letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 0.35rem; }
-  .form-input { width: 100%; padding: 0.55rem 0.875rem; background: rgba(5,8,16,0.6); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.845rem; font-family: 'Space Grotesk', sans-serif; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
+  .form-field { margin-bottom: 0.875rem; }
+  .form-label { font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.35rem; text-transform:uppercase; letter-spacing:0.04em; }
+  .form-input {
+    width: 100%; padding: 0.575rem 0.875rem;
+    background: var(--bg-base); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); color: var(--text-primary);
+    font-size: 0.845rem; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box; font-family:'DM Sans',sans-serif;
+  }
   .form-input::placeholder { color: var(--text-muted); }
-  .form-input:focus { border-color: var(--accent-blue); }
+  .form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(67,97,238,0.1); background:var(--bg-card); }
 
-  .create-btn { width: 100%; padding: 0.65rem; border-radius: 8px; font-size: 0.82rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; cursor: pointer; letter-spacing: 0.05em; transition: all 0.2s; margin-top: 0.25rem; border: 1px solid; }
-  .create-btn.blue { color: var(--accent-blue); border-color: rgba(56,189,248,0.35); background: rgba(56,189,248,0.08); }
-  .create-btn.blue:hover { background: rgba(56,189,248,0.15); box-shadow: 0 0 12px rgba(56,189,248,0.15); }
-  .create-btn.gold { color: var(--accent-gold); border-color: rgba(240,165,0,0.35); background: rgba(240,165,0,0.08); }
-  .create-btn.gold:hover { background: rgba(240,165,0,0.15); box-shadow: 0 0 12px rgba(240,165,0,0.15); }
-  .create-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .toolbar { display: flex; gap: 1rem; margin-bottom: 1.25rem; }
-  .search-input-wrap { position: relative; flex: 1; max-width: 320px; }
-  .search-icon { position: absolute; left: 0.875rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem; pointer-events: none; }
-  .search-input { width: 100%; padding: 0.6rem 0.875rem 0.6rem 2.4rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.845rem; font-family: 'Space Grotesk', sans-serif; outline: none; transition: border-color 0.2s; }
-  .search-input::placeholder { color: var(--text-muted); }
-  .search-input:focus { border-color: var(--accent-blue); }
-
-  .table-shell { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; backdrop-filter: blur(10px); }
-  .data-table { width: 100%; border-collapse: collapse; }
-  .data-table th { padding: 0.75rem 1.1rem; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); }
-  .data-table td { padding: 0.9rem 1.1rem; font-size: 0.845rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
-  .data-table tr:last-child td { border-bottom: none; }
-  .data-table tr:hover td { background: rgba(56,189,248,0.03); }
-
-  .user-id { font-family: 'JetBrains Mono', monospace; color: var(--accent-blue); }
-  .user-email { color: var(--text-secondary); font-size: 0.82rem; }
-  .role-admin { display: inline-flex; align-items: center; gap: 0.3rem; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; padding: 0.2rem 0.65rem; border-radius: 20px; color: var(--accent-blue); background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); }
-  .role-customer { display: inline-flex; align-items: center; gap: 0.3rem; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; padding: 0.2rem 0.65rem; border-radius: 20px; color: var(--accent-gold); background: rgba(240,165,0,0.1); border: 1px solid rgba(240,165,0,0.25); }
-  .role-admin::before, .role-customer::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; }
-
-  .delete-btn { padding: 0.3rem 0.7rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; cursor: pointer; border: 1px solid rgba(244,63,94,0.3); background: rgba(244,63,94,0.05); color: var(--accent-red); transition: all 0.15s; }
-  .delete-btn:hover { background: rgba(244,63,94,0.12); }
-
-  .loading-pulse { display:flex; gap:0.4rem; align-items:center; color:var(--text-secondary); font-family:'JetBrains Mono',monospace; font-size:0.8rem; margin:3rem 0; }
-  .loading-pulse span { width:6px; height:6px; border-radius:50%; background:var(--accent-blue); animation:loadbounce 1.2s ease-in-out infinite; }
-  .loading-pulse span:nth-child(2) { animation-delay:0.15s; }
-  .loading-pulse span:nth-child(3) { animation-delay:0.3s; }
-  @keyframes loadbounce { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
-
-  @media(max-width:700px) { .create-grid { grid-template-columns: 1fr; } }
-
-  .actions-cell {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
+  .create-btn {
+    width: 100%; padding: 0.65rem;
+    border-radius: var(--radius-lg);
+    font-size: 0.845rem; font-weight: 700;
+    cursor: pointer; transition: all 0.15s;
+    margin-top: 0.25rem; border: none;
+    font-family:'DM Sans',sans-serif;
   }
-
-  .tbl-btn {
-    padding: 0.3rem 0.7rem;
-    border-radius: 6px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
-    cursor: pointer;
-    border: 1px solid;
+  .create-btn.blue {
+    background: #4361EE; color: #fff;
+    box-shadow: 0 2px 8px rgba(67,97,238,0.25);
   }
-
-  .tbl-btn:disabled {
-    opacity: 0.28;
-    cursor: not-allowed;
+  .create-btn.blue:hover { background:#3451D1; box-shadow:0 4px 12px rgba(67,97,238,0.35); transform:translateY(-1px); }
+  .create-btn.amber {
+    background: #D97706; color: #fff;
+    box-shadow: 0 2px 8px rgba(217,119,6,0.25);
   }
+  .create-btn.amber:hover { background:#B45309; box-shadow:0 4px 12px rgba(217,119,6,0.35); transform:translateY(-1px); }
+  .create-btn:disabled { opacity: 0.45; cursor: not-allowed; transform:none !important; }
 
-  .tbl-btn-soft {
-    color: #f59e0b;
-    border-color: rgba(245,158,11,0.35);
-    background: rgba(245,158,11,0.06);
+  .toolbar { display:flex; gap:0.875rem; margin-bottom:1.125rem; }
+  .search-wrap { position:relative; flex:1; max-width:320px; }
+  .search-icon { position:absolute; left:0.875rem; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:1rem; pointer-events:none; }
+  .search-input {
+    width:100%; padding:0.575rem 0.875rem 0.575rem 2.5rem;
+    background:var(--bg-card); border:1px solid var(--border);
+    border-radius:var(--radius-lg); color:var(--text-primary);
+    font-size:0.845rem; outline:none; transition:border-color 0.15s, box-shadow 0.15s;
+    box-shadow:var(--shadow-xs); font-family:'DM Sans',sans-serif;
   }
+  .search-input::placeholder { color:var(--text-muted); }
+  .search-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(67,97,238,0.1); }
 
-  .tbl-btn-restore {
-    color: var(--accent-green);
-    border-color: rgba(16,185,129,0.35);
-    background: rgba(16,185,129,0.06);
+  .panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-xl); overflow:hidden; box-shadow:var(--shadow-sm); }
+  .data-table { width:100%; border-collapse:collapse; }
+  .data-table th {
+    padding:0.8rem 1.125rem; text-align:left; font-size:0.72rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted);
+    background:#F8F9FC; border-bottom:1px solid var(--border);
   }
-
-  .tbl-btn-hard {
-    color: var(--accent-red);
-    border-color: rgba(244,63,94,0.35);
-    background: rgba(244,63,94,0.06);
+  .data-table td {
+    padding:0.875rem 1.125rem; font-size:0.845rem;
+    border-bottom:1px solid #F2F4F9; vertical-align:middle; color:var(--text-primary);
   }
+  .data-table tr:last-child td { border-bottom:none; }
+  .data-table tbody tr:hover td { background:#F8F9FC; }
 
-  .btn-divider {
-    width: 1px;
-    height: 20px;
-    background: var(--border);
+  .mono { font-family:'DM Mono','Fira Code',monospace; font-size:0.82rem; }
+  .id-accent { color:var(--accent); font-weight:600; }
+  .user-email { color:var(--text-secondary); font-size:0.82rem; }
+
+  .user-avatar {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(135deg, #EEF2FF, #C7D2FE);
+    border: 1px solid rgba(67,97,238,0.15);
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:0.7rem; font-weight:700; color:var(--accent);
+    margin-right:0.5rem; vertical-align:middle; flex-shrink:0;
   }
+  .user-name-wrap { display:inline-flex; align-items:center; }
 
-  .pagination {
-    display: flex;
-    justify-content: center;
-    gap: 0.4rem;
-    margin-top: 1.25rem;
-  }
+  .role-badge { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.69rem; font-weight:700; padding:0.22rem 0.65rem; border-radius:6px; border:1px solid; }
+  .role-badge::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
+  .role-admin    { color:#4361EE; background:#EEF2FF; border-color:rgba(67,97,238,0.2); }
+  .role-customer { color:#D97706; background:#FFFBEB; border-color:rgba(217,119,6,0.2); }
 
+  .actions-cell { display:flex; align-items:center; gap:0.375rem; }
+  .tbl-btn { padding:0.3rem 0.7rem; border-radius:6px; font-size:0.72rem; font-weight:600; cursor:pointer; border:1px solid; transition:all 0.15s; font-family:'DM Sans',sans-serif; }
+  .tbl-btn:disabled { opacity:0.35; cursor:not-allowed; }
+  .btn-soft    { color:#D97706; border-color:rgba(217,119,6,0.25); background:#FFFBEB; }
+  .btn-soft:hover:not(:disabled) { background:#FEF3C7; border-color:#D97706; }
+  .btn-restore { color:#0CAA6E; border-color:rgba(12,170,110,0.25); background:#EDFAF4; }
+  .btn-restore:hover:not(:disabled) { background:#D1FAE5; border-color:#0CAA6E; }
+  .btn-delete  { color:#DC3545; border-color:rgba(220,53,69,0.25); background:#FEF2F2; }
+  .btn-delete:hover { background:#FEE2E2; border-color:#DC3545; }
+  .btn-divider { width:1px; height:18px; background:var(--border); flex-shrink:0; }
+
+  .loading-wrap { display:flex; gap:0.35rem; align-items:center; justify-content:center; color:var(--text-secondary); font-size:0.83rem; padding:4rem 0; }
+  .loading-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); animation:ldot 1.2s ease-in-out infinite; }
+  .loading-dot:nth-child(2){animation-delay:0.15s;} .loading-dot:nth-child(3){animation-delay:0.3s;}
+  @keyframes ldot{0%,80%,100%{transform:scale(0.5);opacity:0.3}40%{transform:scale(1);opacity:1}}
+
+  .pagination { display:flex; justify-content:center; gap:0.375rem; padding:1rem; border-top:1px solid var(--border); background:#F8F9FC; }
   .page-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
+    width:34px; height:34px; border-radius:var(--radius);
+    border:1px solid var(--border); background:var(--bg-card);
+    color:var(--text-secondary); cursor:pointer; font-size:0.8rem;
+    transition:all 0.15s; display:flex; align-items:center; justify-content:center;
+    font-family:'DM Mono',monospace; box-shadow:var(--shadow-xs);
   }
-
-  .page-btn.active {
-    background: rgba(56,189,248,0.12);
-    border-color: var(--accent-blue);
-    color: var(--accent-blue);
-  }
+  .page-btn:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+  .page-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 2px 6px rgba(67,97,238,0.25); }
+  .page-btn:disabled { opacity:0.3; cursor:not-allowed; }
 `;
 
 const EMPTY = { name: "", email: "", password: "" };
@@ -167,9 +175,10 @@ export default function AdminUsers() {
   };
 
   const loadUsers = () => {
-    axios.get("/users/getAll")
+    setLoading(true);
+    axios.get("/users/getAll", { headers: { "X-Internal-Key": API_KEY } })
       .then(res => setUsers(res.data))
-      .catch(() => showToast("error", "FAILED TO LOAD USERS"))
+      .catch(() => showToast("error", "Failed to load users"))
       .finally(() => setLoading(false));
   };
 
@@ -178,218 +187,150 @@ export default function AdminUsers() {
   const handleCreate = async (role) => {
     const form = role === "admin" ? adminForm : custForm;
     const setForm = role === "admin" ? setAdminForm : setCustForm;
-    const endpoint = role === "admin" ? "/users/create-admin" : "/users/create-customer";
-    if (!form.name || !form.email || !form.password) { showToast("error", "ALL FIELDS REQUIRED"); return; }
+    if (!form.name || !form.email || !form.password) { showToast("error", "All fields are required"); return; }
     setSubmitting(role);
     try {
-      await axios.post(endpoint, form);
-      showToast("success", `${role.toUpperCase()} CREATED SUCCESSFULLY`);
+      await axios.post(`/users/create-${role}`, form, { headers: { "X-Internal-Key": API_KEY } });
       setForm(EMPTY);
+      showToast("success", `${role === "admin" ? "Admin" : "Customer"} account created`);
       loadUsers();
-    } catch { showToast("error", "CREATION FAILED"); }
+    } catch { showToast("error", "Failed to create account"); }
     finally { setSubmitting(null); }
   };
 
   const softDeleteUser = async (id) => {
-    try {
-      await axios.patch(`/users/${id}/soft-delete`, {}, {
-        headers: { "X-Internal-Key": API_KEY }
-      });
-      showToast("success", "USER SOFT DELETED");
-      loadUsers();
-    } catch {
-      showToast("error", "SOFT DELETE FAILED");
-    }
+    try { await axios.patch(`/users/${id}/soft-delete`, null, { headers: { "X-Internal-Key": API_KEY } }); loadUsers(); showToast("success", `User #${id} deactivated`); }
+    catch { showToast("error", "Action failed"); }
   };
 
   const restoreUser = async (id) => {
-    try {
-      await axios.patch(`/users/${id}/restore`, {}, {
-        headers: { "X-Internal-Key": API_KEY }
-      });
-      showToast("success", "USER RESTORED");
-      loadUsers();
-    } catch {
-      showToast("error", "RESTORE FAILED");
-    }
+    try { await axios.patch(`/users/${id}/restore`, null, { headers: { "X-Internal-Key": API_KEY } }); loadUsers(); showToast("success", `User #${id} restored`); }
+    catch { showToast("error", "Action failed"); }
   };
 
   const hardDeleteUser = async (id) => {
-    if (!window.confirm("Delete this user permanently?")) return;
-
-    try {
-      await axios.delete(`/users/${id}`, {
-        headers: { "X-Internal-Key": API_KEY }
-      });
-      showToast("success", "USER DELETED");
-      loadUsers();
-    } catch {
-      showToast("error", "DELETE FAILED");
-    }
+    if (!window.confirm(`Permanently delete user #${id}? This cannot be undone.`)) return;
+    try { await axios.delete(`/users/${id}`, { headers: { "X-Internal-Key": API_KEY } }); loadUsers(); showToast("success", `User #${id} deleted`); }
+    catch { showToast("error", "Delete failed"); }
   };
+
+  const getInitials = (name) => name ? name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "?";
 
   const filtered = users.filter(u => {
     if (!search) return true;
     return String(u.id).includes(search) || (u.name || "").toLowerCase().includes(search.toLowerCase());
   });
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
-
-  const paginated = filtered.slice(
-  (currentPage - 1) * itemsPerPage,
-  currentPage * itemsPerPage
-  );
+  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="users-page">
       <style>{css}</style>
 
       <div className="page-header">
-        <div className="page-eyebrow">// user_management</div>
-        <div className="page-title">USERS</div>
-        <div className="page-sub">{loading ? "LOADING..." : `${users.length} TOTAL_ACCOUNTS`}</div>
+        <div>
+          <div className="page-title">Users</div>
+          <div className="page-sub">{loading ? "Loading…" : `${users.length} total accounts`}</div>
+        </div>
       </div>
 
       {toast && (
         <div className={`toast-msg ${toast.type === "error" ? "toast-error" : "toast-success"}`}>
-          {toast.type === "error" ? "⚠" : "✓"}&nbsp;{toast.msg}
+          {toast.type === "error" ? "⚠" : "✓"} {toast.msg}
         </div>
       )}
 
       <div className="create-grid">
         <div className="create-card admin-card">
-          <div className="create-card-title blue">Create Admin Account</div>
-          <div className="form-field">
-            <label className="form-label">Full Name</label>
+          <div className="create-card-header">
+            <div className="card-header-icon blue">🛡</div>
+            <div className="create-card-title blue">Create Admin Account</div>
+          </div>
+          <div className="form-field"><label className="form-label">Full Name</label>
             <input className="form-input" placeholder="Admin name" value={adminForm.name} onChange={e => setAdminForm({ ...adminForm, name: e.target.value })} />
           </div>
-          <div className="form-field">
-            <label className="form-label">Email Address</label>
+          <div className="form-field"><label className="form-label">Email Address</label>
             <input className="form-input" placeholder="admin@example.com" value={adminForm.email} onChange={e => setAdminForm({ ...adminForm, email: e.target.value })} />
           </div>
-          <div className="form-field">
-            <label className="form-label">Password</label>
+          <div className="form-field"><label className="form-label">Password</label>
             <input className="form-input" type="password" placeholder="••••••••" value={adminForm.password} onChange={e => setAdminForm({ ...adminForm, password: e.target.value })} />
           </div>
           <button className="create-btn blue" onClick={() => handleCreate("admin")} disabled={submitting === "admin"}>
-            {submitting === "admin" ? "CREATING..." : "+ CREATE_ADMIN"}
+            {submitting === "admin" ? "Creating…" : "+ Create Admin"}
           </button>
         </div>
 
         <div className="create-card customer-card">
-          <div className="create-card-title gold">Create Customer Account</div>
-          <div className="form-field">
-            <label className="form-label">Full Name</label>
+          <div className="create-card-header">
+            <div className="card-header-icon amber">👤</div>
+            <div className="create-card-title amber">Create Customer Account</div>
+          </div>
+          <div className="form-field"><label className="form-label">Full Name</label>
             <input className="form-input" placeholder="Customer name" value={custForm.name} onChange={e => setCustForm({ ...custForm, name: e.target.value })} />
           </div>
-          <div className="form-field">
-            <label className="form-label">Email Address</label>
+          <div className="form-field"><label className="form-label">Email Address</label>
             <input className="form-input" placeholder="user@example.com" value={custForm.email} onChange={e => setCustForm({ ...custForm, email: e.target.value })} />
           </div>
-          <div className="form-field">
-            <label className="form-label">Password</label>
+          <div className="form-field"><label className="form-label">Password</label>
             <input className="form-input" type="password" placeholder="••••••••" value={custForm.password} onChange={e => setCustForm({ ...custForm, password: e.target.value })} />
           </div>
-          <button className="create-btn gold" onClick={() => handleCreate("customer")} disabled={submitting === "customer"}>
-            {submitting === "customer" ? "CREATING..." : "+ CREATE_CUSTOMER"}
+          <button className="create-btn amber" onClick={() => handleCreate("customer")} disabled={submitting === "customer"}>
+            {submitting === "customer" ? "Creating…" : "+ Create Customer"}
           </button>
         </div>
       </div>
 
       <div className="toolbar">
-        <div className="search-input-wrap">
+        <div className="search-wrap">
           <span className="search-icon">⌕</span>
-          <input className="search-input" type="text" placeholder="Search by ID or name..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="search-input" type="text" placeholder="Search by ID or name…" value={search}
+            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }} />
         </div>
       </div>
 
       {loading ? (
-        <div className="loading-pulse"><span/><span/><span/>&nbsp;LOADING ACCOUNTS...</div>
+        <div className="loading-wrap"><div className="loading-dot"/><div className="loading-dot"/><div className="loading-dot"/>&nbsp;Loading accounts…</div>
       ) : (
-        <div className="table-shell">
+        <div className="panel">
           <table className="data-table">
             <thead>
-              <tr>
-                {["USER_ID", "NAME", "EMAIL", "ROLE", "ACTIONS"].map(h => <th key={h}>{h}</th>)}
-              </tr>
+              <tr>{["User ID","Name","Email","Role","Actions"].map(h => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {paginated.map(u => {
-                const isAdmin = u.role?.toLowerCase() === "admin";
-
-                return (
-                  <tr key={u.id} style={{ opacity: u.deleted ? 0.5 : 1 }}>
-                    <td><span className="user-id">#{u.id}</span></td>
-                    <td style={{ color: "var(--text-primary)", fontWeight: 500 }}>{u.name}</td>
-                    <td><span className="user-email">{u.email}</span></td>
-                    <td>
-                      {u.role?.toLowerCase() === "admin"
-                        ? <span className="role-admin">ADMIN</span>
-                        : <span className="role-customer">CUSTOMER</span>
-                      }
-                    </td>
-                    <td>
-                      <div className="actions-cell">
-
-                        <button
-                          className="tbl-btn tbl-btn-soft"
-                          onClick={() => softDeleteUser(u.id)}
-                          disabled={u.deleted || isAdmin}
-                        >
-                          DISABLE
-                        </button>
-
-                        <button
-                          className="tbl-btn tbl-btn-restore"
-                          onClick={() => restoreUser(u.id)}
-                          disabled={!u.deleted || isAdmin}
-                        >
-                          ↺ ENABLE
-                        </button>
-
-                        <div className="btn-divider" />
-
-                        <button
-                          className="tbl-btn tbl-btn-hard"
-                          onClick={() => hardDeleteUser(u.id)}
-                          disabled={isAdmin}
-                        >
-                          ✕ DELETE
-                        </button>
-
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {paginated.map(u => (
+                <tr key={u.id} style={{ opacity: u.deleted ? 0.5 : 1 }}>
+                  <td><span className="mono id-accent">#{u.id}</span></td>
+                  <td>
+                    <div className="user-name-wrap">
+                      <span className="user-avatar">{getInitials(u.name)}</span>
+                      <span style={{ fontWeight: 600 }}>{u.name}</span>
+                    </div>
+                  </td>
+                  <td><span className="user-email">{u.email}</span></td>
+                  <td>
+                    {u.role?.toLowerCase() === "admin"
+                      ? <span className="role-badge role-admin">Admin</span>
+                      : <span className="role-badge role-customer">Customer</span>}
+                  </td>
+                  <td>
+                    <div className="actions-cell">
+                      <button className="tbl-btn btn-soft" onClick={() => softDeleteUser(u.id)} disabled={u.deleted}>Deactivate</button>
+                      <button className="tbl-btn btn-restore" onClick={() => restoreUser(u.id)} disabled={!u.deleted}>Restore</button>
+                      <div className="btn-divider" />
+                      <button className="tbl-btn btn-delete" onClick={() => hardDeleteUser(u.id)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
           {totalPages > 1 && (
             <div className="pagination">
-              <button
-                className="page-btn"
-                onClick={() => setCurrentPage(p => p - 1)}
-                disabled={currentPage === 1}
-              >
-                ←
-              </button>
-
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  className={`page-btn ${currentPage === i + 1 ? "active" : ""}`}
-                  onClick={() => setCurrentPage(i + 1)}
-                >
-                  {i + 1}
-                </button>
+              <button className="page-btn" onClick={() => setCurrentPage(p => p-1)} disabled={currentPage===1}>‹</button>
+              {[...Array(totalPages)].map((_,i) => (
+                <button key={i} className={`page-btn${currentPage===i+1?" active":""}`} onClick={() => setCurrentPage(i+1)}>{i+1}</button>
               ))}
-
-              <button
-                className="page-btn"
-                onClick={() => setCurrentPage(p => p + 1)}
-                disabled={currentPage === totalPages}
-              >
-                →
-              </button>
+              <button className="page-btn" onClick={() => setCurrentPage(p => p+1)} disabled={currentPage===totalPages}>›</button>
             </div>
           )}
         </div>

@@ -1,6 +1,5 @@
 package com.mphasis.orderservice.client;
 
-import com.mphasis.orderservice.dto.PaymentRequest;
 import com.mphasis.orderservice.dto.PaymentResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface PaymentClient {
 
     @PostMapping("/payments")
-    PaymentResponse processPayment(@RequestBody PaymentRequest request);
+    PaymentResponse processPayment(@RequestBody Long request);
 
     @PostMapping("/payments/reverse/{orderId}")
     void reversePayment(@PathVariable("orderId") Long orderId);

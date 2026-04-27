@@ -31,16 +31,18 @@ public class OrderStateMachine {
             Set.of(OrderStatus.REFUNDED),
 
             OrderStatus.REFUND_REJECTED,
-            Set.of(OrderStatus.COMPLETED),
-
-            OrderStatus.REFUNDED,
-            Set.of(OrderStatus.CANCELLED),
-
-            OrderStatus.FAILED,
-            Set.of(OrderStatus.CANCELLED)
+            Set.of(OrderStatus.COMPLETED)
     );
 
     public void validate(OrderStatus current, OrderStatus next) {
+        if (current == OrderStatus.FAILED ||
+                current == OrderStatus.CANCELLED ||
+                current == OrderStatus.REFUNDED) {
+
+            throw new InvalidStateTransitionException(
+                    "No transitions allowed from terminal state: " + current
+            );
+        }
 
         if (!transitions.containsKey(current) ||
                 !transitions.get(current).contains(next)) {
