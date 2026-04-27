@@ -10,7 +10,7 @@ public class ProductMapper {
         p.setProductName(dto.getProductName());
         p.setPrice(dto.getPrice());
         p.setAvailableQuantity(dto.getAvailableQuantity());
-        p.setDeleted(false);
+        p.setImageUrl(dto.getImageUrl());
         return p;
     }
 
@@ -20,7 +20,8 @@ public class ProductMapper {
                 p.getProductName(),
                 p.getPrice(),
                 p.getAvailableQuantity(),
-                p.isDeleted()
+                p.isDeleted(),
+                p.getImageUrl()
         );
     }
 }

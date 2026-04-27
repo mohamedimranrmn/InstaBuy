@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class PaymentService {
@@ -176,7 +175,7 @@ public class PaymentService {
 
             payment.setStatus(PaymentStatus.FAILED);
             repo.save(payment);
-
+            orderClient.failOrder(orderId);
             throw new ExternalServiceException("Razorpay error");
         }
     }

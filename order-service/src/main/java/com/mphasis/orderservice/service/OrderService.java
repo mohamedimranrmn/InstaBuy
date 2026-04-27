@@ -10,6 +10,7 @@ import com.mphasis.orderservice.exception.*;
 import com.mphasis.orderservice.model.*;
 import com.mphasis.orderservice.saga.OrderStateMachine;
 
+import com.mphasis.orderservice.util.LogClient;
 import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 
@@ -39,19 +40,22 @@ public class OrderService {
     private final UserClient userClient;
     private final OrderStateMachine stateMachine;
     private final OrderItemRepository orderItemRepo;
+    private final LogClient logClient;
 
     public OrderService(OrderRepository repo,
                         InventoryClient inventory,
                         PaymentClient paymentClient,
                         UserClient userClient,
                         OrderItemRepository orderItemRepo,
-                        OrderStateMachine stateMachine) {
+                        OrderStateMachine stateMachine,
+                        LogClient logClient) {
         this.repo = repo;
         this.inventory = inventory;
         this.paymentClient = paymentClient;
         this.userClient = userClient;
         this.stateMachine = stateMachine;
         this.orderItemRepo = orderItemRepo;
+        this.logClient = logClient;
     }
 
 
@@ -71,6 +75,14 @@ public class OrderService {
         order.setTotalAmount(calculateTotal(items));
 
         repo.save(order);
+        logClient.sendLog(new ActivityLog(
+                "order-service",
+                "ORDER_CREATED",
+                SecurityContextHolder.getContext().getAuthentication().getName(),
+                "ORDER",
+                order.getOrderId(),
+                "Order created successfully"
+        ));
 
         List<OrderItem> reservedItems = new ArrayList<>();
 
@@ -116,6 +128,14 @@ public class OrderService {
 
         transition(order, OrderStatus.COMPLETED);
         repo.save(order);
+        logClient.sendLog(new ActivityLog(
+                "order-service",
+                "PAYMENT_SUCCESS",
+                SecurityContextHolder.getContext().getAuthentication().getName(),
+                "ORDER",
+                orderId,
+                "Payment completed"
+        ));
 
         log.info("Order is {} → COMPLETED", orderId);
     }
@@ -130,15 +150,21 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.PAYMENT_PENDING) {
             throw new InvalidStateTransitionException("Invalid state for failure");
         }
-
         rollbackInventory(order.getItems());
-
         order.setFailureReason("Payment failed");
         transition(order, OrderStatus.FAILED);
-
         repo.save(order);
 
-        log.info("Order {} → FAILED", orderId);
+        logClient.sendLog(new ActivityLog(
+                "order-service",
+                "PAYMENT_FAILED",
+                SecurityContextHolder.getContext().getAuthentication().getName(),
+                "ORDER",
+                orderId,
+                "Payment failed → order cancelled & stock restored"
+        ));
+
+        log.info("Order {} → CANCELLED (auto rollback)", orderId);
     }
 
 
@@ -161,21 +187,48 @@ public class OrderService {
 
             transition(order, OrderStatus.CANCELLED);
             repo.save(order);
+            logClient.sendLog(new ActivityLog(
+                    "order-service",
+                    "ORDER_CANCELLED",
+                    SecurityContextHolder.getContext().getAuthentication().getName(),
+                    "ORDER",
+                    orderId,
+                    "Order cancelled before payment"
+            ));
 
             log.info("Order {} cancelled before payment", orderId);
             return;
         }
 
         if (order.getStatus() == OrderStatus.COMPLETED) {
-
+            validateRefundWindow(order);
             transition(order, OrderStatus.CANCEL_REQUESTED);
             repo.save(order);
+            logClient.sendLog(new ActivityLog(
+                    "order-service",
+                    "CANCEL_REQUESTED",
+                    SecurityContextHolder.getContext().getAuthentication().getName(),
+                    "ORDER",
+                    orderId,
+                    "Cancel requested"
+            ));
 
             log.info("Order {} → CANCEL_REQUESTED", orderId);
             return;
         }
 
         throw new InvalidStateTransitionException("Cannot cancel order in state: " + order.getStatus());
+    }
+
+    private void validateRefundWindow(Order order) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime orderTime = order.getCreatedAt();
+
+        long days = java.time.Duration.between(orderTime, now).toDays();
+
+        if (days > 5) {
+            throw new RefundException("Refund period expired (5 days only)");
+        }
     }
 
     @Transactional
@@ -189,25 +242,56 @@ public class OrderService {
         }
 
         if (approve) {
-
+            validateRefundWindow(order);
             transition(order, OrderStatus.REFUND_PENDING);
             repo.save(order);
 
-            paymentClient.refund(orderId);
+            try {
+                paymentClient.refund(orderId);
+                transition(order, OrderStatus.REFUNDED);
+                logClient.sendLog(new ActivityLog(
+                        "order-service",
+                        "REFUND_COMPLETED",
+                        SecurityContextHolder.getContext().getAuthentication().getName(),
+                        "ORDER",
+                        orderId,
+                        "Refund successful"
+                ));
+                log.info("Order {} → REFUNDED", orderId);
 
-            transition(order, OrderStatus.REFUNDED);
+            } catch (Exception e) {
+                log.error("Refund failed for order {}", orderId, e);
+                order.setFailureReason("Refund failed");
+                transition(order, OrderStatus.FAILED);
 
-            log.info("Order {} → REFUNDED", orderId);
+                repo.save(order);
+                logClient.sendLog(new ActivityLog(
+                        "order-service",
+                        "REFUND_FAILED",
+                        SecurityContextHolder.getContext().getAuthentication().getName(),
+                        "ORDER",
+                        orderId,
+                        "Refund failed"
+                ));
+
+                throw new RefundException("Refund failed");
+            }
 
         } else {
 
             transition(order, OrderStatus.REFUND_REJECTED);
-
             order.setFailureReason("Refund rejected by admin");
 
             transition(order, OrderStatus.COMPLETED);
-
             log.info("Order {} → REFUND_REJECTED → COMPLETED", orderId);
+            logClient.sendLog(new ActivityLog(
+                    "order-service",
+                    "REFUND_REJECTED",
+                    SecurityContextHolder.getContext().getAuthentication().getName(),
+                    "ORDER",
+                    orderId,
+                    "Refund rejected by admin"
+            ));
         }
 
         repo.save(order);
@@ -259,10 +343,24 @@ public class OrderService {
         );
 
         if (exists) {
-            throw new InvalidProductException("Product is used in active/completed orders");
+            throw new InvalidProductException("Product is used in active or completed orders");
         }
 
         inventory.deleteProduct(internalApiKey, productId);
+
+        log.info("Deleting product {} via inventory-service", productId);
+        try {
+            logClient.sendLog(new ActivityLog(
+                    "order-service",
+                    "PRODUCT_DELETED",
+                    "SYSTEM",
+                    "PRODUCT",
+                    productId,
+                    "Product deleted via order-service"
+            ));
+        } catch (Exception ex) {
+            log.error("Logging failed for product {}", productId, ex);
+        }
 
         log.info("Product {} deleted successfully", productId);
     }

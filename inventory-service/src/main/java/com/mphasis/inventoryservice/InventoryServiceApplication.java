@@ -11,7 +11,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 @EnableFeignClients
 @EnableDiscoveryClient
 public class InventoryServiceApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(InventoryServiceApplication.class, args);
     }

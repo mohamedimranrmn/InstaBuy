@@ -19,10 +19,16 @@ public class Order {
 
     private double totalAmount;
 
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @PrePersist
+    public void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
     private String failureReason;
-
+    @Column(nullable = false)
+    private int retryCount = 0;
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 
@@ -80,5 +86,12 @@ public class Order {
 
     public void setItems(List<OrderItem> items) {
         this.items = items;
+    }
+    public int getRetryCount() {
+        return retryCount;
+    }
+
+    public void setRetryCount(int retryCount) {
+        this.retryCount = retryCount;
     }
 }

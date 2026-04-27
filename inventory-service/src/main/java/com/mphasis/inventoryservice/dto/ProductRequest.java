@@ -13,6 +13,9 @@ public class ProductRequest {
     @Min(0)
     private int availableQuantity;
 
+    @NotBlank
+    private String imageUrl;
+
     public String getProductName() {
         return productName;
     }
@@ -37,4 +40,11 @@ public class ProductRequest {
         this.availableQuantity = availableQuantity;
     }
 
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
 }
