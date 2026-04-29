@@ -1,19 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import axios from "../../api/axios";
-
-const IMGBB_API_KEY = "c8b736933147a1e8fa3a97a66680f793";
-
-async function uploadImage(file) {
-  const form = new FormData();
-  form.append("image", file);
-  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-    method: "POST",
-    body: form,
-  });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Upload failed");
-  return json.data.url;
-}
 
 const INTERNAL_KEY = "0aK4VOyO5dOwBEBjJG6+cbio1ENbTNYVqi0elOkWnvo=";
 const INTERNAL_HEADERS = { "X-Internal-Key": INTERNAL_KEY, "Content-Type": "application/json" };
@@ -263,55 +249,6 @@ const css = `
 
   .field-row { display:flex; gap:0.875rem; }
   .field-row .modal-field { flex:1; }
-
-  /* ── Image Upload Zone ── */
-  .img-upload-zone {
-    border: 2px dashed var(--border);
-    border-radius: var(--radius-lg);
-    padding: 1.25rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.18s;
-    background: var(--bg-base);
-    position: relative;
-  }
-  .img-upload-zone:hover, .img-upload-zone.drag-over {
-    border-color: var(--accent);
-    background: var(--accent-dim);
-  }
-  .img-upload-zone input[type="file"] {
-    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-  }
-  .img-upload-icon { font-size: 1.75rem; margin-bottom: 0.375rem; }
-  .img-upload-text { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; }
-  .img-upload-text strong { color: var(--accent); }
-
-  .img-preview-wrap {
-    position: relative; border-radius: var(--radius-lg); overflow: hidden;
-    border: 1px solid var(--border); background: var(--bg-base);
-  }
-  .img-preview { width: 100%; height: 140px; object-fit: cover; display: block; }
-  .img-preview-remove {
-    position: absolute; top: 0.5rem; right: 0.5rem;
-    width: 26px; height: 26px; border-radius: 50%;
-    background: rgba(0,0,0,0.55); border: none; color: #fff;
-    font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s;
-  }
-  .img-preview-remove:hover { background: #DC3545; }
-  .img-uploading {
-    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-    height: 140px; font-size: 0.82rem; color: var(--text-secondary);
-  }
-  .img-upload-error { font-size: 0.75rem; color: #DC3545; margin-top: 0.25rem; }
-
-  /* ── Image thumbnail in table ── */
-  .prod-img-cell { display: flex; align-items: center; gap: 0.75rem; }
-  .prod-thumb {
-    width: 40px; height: 40px; object-fit: cover;
-    border-radius: 8px; border: 1px solid var(--border);
-    flex-shrink: 0; background: #F2F4F9;
-  }
 `;
 
 const VIEW_TABS = [
@@ -319,86 +256,6 @@ const VIEW_TABS = [
   { key: "ACTIVE",  label: "Active",       cls: "tab-active"  },
   { key: "DELETED", label: "Deactivated",  cls: "tab-deleted" },
 ];
-
-/* ── Reusable Image Upload Field ── */
-function ImageUploadField({ value, onChange }) {
-  const [dragging, setDragging]   = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError]         = useState("");
-  const inputRef = useRef();
-
-  const handleFile = useCallback(async (file) => {
-    if (!file || !file.type.startsWith("image/")) { setError("Please select a valid image file."); return; }
-    setError("");
-    setUploading(true);
-    try {
-      const url = await uploadImage(file);
-      onChange(url);
-    } catch (e) {
-      setError("Upload failed — check your ImgBB API key or try a URL instead.");
-    } finally {
-      setUploading(false);
-    }
-  }, [onChange]);
-
-  const onDrop = useCallback((e) => {
-    e.preventDefault(); setDragging(false);
-    handleFile(e.dataTransfer.files[0]);
-  }, [handleFile]);
-
-  const onDragOver = (e) => { e.preventDefault(); setDragging(true); };
-  const onDragLeave = () => setDragging(false);
-
-  return (
-    <div className="modal-field">
-      <label className="modal-label">Product Image</label>
-
-      {uploading ? (
-        <div className="img-preview-wrap">
-          <div className="img-uploading">
-            <span>⏳</span> Uploading image…
-          </div>
-        </div>
-      ) : value ? (
-        <div className="img-preview-wrap">
-          <img className="img-preview" src={value} alt="Product preview" onError={e => { e.target.src = "https://via.placeholder.com/300x140?text=Invalid+URL"; }} />
-          <button className="img-preview-remove" onClick={() => onChange("")} title="Remove image">✕</button>
-        </div>
-      ) : (
-        <div
-          className={`img-upload-zone${dragging ? " drag-over" : ""}`}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onClick={() => inputRef.current?.click()}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={e => handleFile(e.target.files[0])}
-          />
-          <div className="img-upload-icon">🖼</div>
-          <div className="img-upload-text">
-            <strong>Click to browse</strong> or drag & drop<br />
-            PNG, JPG, WEBP — uploads to ImgBB
-          </div>
-        </div>
-      )}
-
-      {/* URL fallback input */}
-      <input
-        className="modal-input"
-        value={value}
-        onChange={e => { setError(""); onChange(e.target.value); }}
-        placeholder="…or paste an image URL directly"
-        style={{ marginTop: "0.5rem" }}
-      />
-      {error && <div className="img-upload-error">⚠ {error}</div>}
-    </div>
-  );
-}
 
 /* ── Reusable modal shell ── */
 function Modal({ onClose, children }) {
@@ -417,18 +274,23 @@ function Modal({ onClose, children }) {
 
 /* ── Add Product Modal ── */
 function AddModal({ onClose, onSave }) {
-  const [name, setName]       = useState("");
-  const [price, setPrice]     = useState("");
-  const [qty, setQty]         = useState("");
+  const [name, setName]         = useState("");
+  const [price, setPrice]       = useState("");
+  const [qty, setQty]           = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  const [busy, setBusy]       = useState(false);
+  const [busy, setBusy]         = useState(false);
 
   const valid = name.trim() && Number(price) > 0 && qty !== "" && Number(qty) >= 0;
 
   const handleSave = async () => {
     if (!valid) return;
     setBusy(true);
-    await onSave({ productName: name.trim(), price: parseFloat(price), availableQuantity: parseInt(qty), imageUrl });
+    await onSave({
+      productName: name.trim(),
+      price: parseFloat(price),
+      availableQuantity: parseInt(qty),
+      imageUrl,
+    });
     setBusy(false);
     onClose();
   };
@@ -482,7 +344,15 @@ function AddModal({ onClose, onSave }) {
             />
           </div>
         </div>
-        <ImageUploadField value={imageUrl} onChange={setImageUrl} />
+        <div className="modal-field">
+          <label className="modal-label">Product Image URL</label>
+          <input
+            className="modal-input"
+            value={imageUrl}
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="Paste image URL (Supabase / CDN)"
+          />
+        </div>
       </div>
 
       <div className="modal-footer">
@@ -508,7 +378,12 @@ function EditModal({ product, onClose, onSave }) {
   const handleSave = async () => {
     if (!valid) return;
     setBusy(true);
-    await onSave(product.productId, { productName: name.trim(), price: Number(price), availableQuantity: Number(qty), imageUrl });
+    await onSave(product.productId, {
+      productName: name.trim(),
+      price: Number(price),
+      availableQuantity: Number(qty),
+      imageUrl,
+    });
     setBusy(false);
     onClose();
   };
@@ -541,7 +416,15 @@ function EditModal({ product, onClose, onSave }) {
             <input className="modal-input" type="number" min="0" value={qty} onChange={e => setQty(e.target.value)} placeholder="0" />
           </div>
         </div>
-        <ImageUploadField value={imageUrl} onChange={setImageUrl} />
+        <div className="modal-field">
+          <label className="modal-label">Product Image URL</label>
+          <input
+            className="modal-input"
+            value={imageUrl}
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="Update image URL"
+          />
+        </div>
       </div>
 
       <div className="modal-footer">
@@ -850,19 +733,25 @@ export default function AdminProducts() {
           <div style={{ overflowX: "auto" }}>
             <table className="data-table">
               <thead>
-                <tr>{["ID","Product","Price","Stock","Status","Actions"].map(h => <th key={h}>{h}</th>)}</tr>
+                <tr>{["ID","Product Name","Price","Stock","Status","Actions"].map(h => <th key={h}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {paginated.map(p => (
                   <tr key={p.productId} className={p.deleted ? "row-deleted" : ""}>
                     <td><span className="mono id-accent">#{p.productId}</span></td>
                     <td>
-                      <div className="prod-img-cell">
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <img
-                          className="prod-thumb"
-                          src={p.imageUrl || `https://picsum.photos/seed/${p.productId}/80/80`}
+                          src={p.imageUrl || "https://via.placeholder.com/40"}
                           alt={p.productName}
-                          onError={e => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/40?text=?"; }}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            objectFit: "cover",
+                            borderRadius: 6,
+                            border: "1px solid #ddd",
+                            flexShrink: 0,
+                          }}
                         />
                         <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{p.productName}</span>
                       </div>

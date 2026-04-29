@@ -1,7 +1,5 @@
 package com.mphasis.orderservice.exception;
 
-import java.time.LocalDateTime;
-
 public class ErrorResponse {
 
     private String errorCode;

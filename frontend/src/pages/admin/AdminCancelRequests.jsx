@@ -51,11 +51,9 @@ const css = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 0.75rem;
   }
 
-  .order-meta { display: flex; align-items: center; gap: 0.875rem; flex-wrap: wrap; }
+  .order-meta { display: flex; align-items: center; gap: 0.875rem; }
   .order-num { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); font-family: 'DM Mono', monospace; }
 
   .user-chip {
@@ -92,52 +90,33 @@ const css = `
     letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem;
   }
 
-  /* Item row with image — mirrors AdminProducts prod-img-cell pattern */
+  /* ITEM ROW WITH PRODUCT DETAILS */
   .item-row {
-    display: flex;
-    align-items: center;
-    gap: 0.875rem;
+    display: flex; align-items: center; gap: 0.875rem;
     padding: 0.625rem 0.75rem;
-    margin-bottom: 0.375rem;
+    margin-bottom: 0.25rem;
     border-radius: var(--radius);
-    font-size: 0.82rem;
     background: #F8F9FC;
     border: 1px solid var(--border);
   }
-
-  /* Thumbnail — same dimensions as AdminProducts prod-thumb but slightly larger */
-  .item-img-wrap {
-    width: 48px;
-    height: 48px;
-    border-radius: 8px;
-    overflow: hidden;
-    flex-shrink: 0;
-    background: #F2F4F9;
-    border: 1px solid var(--border);
+  .item-thumb {
+    width: 40px; height: 40px; object-fit: cover;
+    border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0;
   }
-  .item-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
+  .item-details { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+  .item-name {
+    font-size: 0.82rem; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-
-  .item-details { display: flex; flex-direction: column; gap: 0.18rem; flex: 1; min-width: 0; }
-  .item-prod {
-    color: var(--text-primary);
-    font-weight: 600;
-    font-size: 0.82rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .item-meta {
+    font-size: 0.74rem; color: var(--text-secondary);
+    font-family: 'DM Mono', 'Fira Code', monospace;
   }
-  .item-prod-id {
-    color: var(--accent);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
+  .item-subtotal {
+    font-family: 'DM Mono', 'Fira Code', monospace;
+    font-size: 0.82rem; font-weight: 700;
+    color: var(--green); white-space: nowrap; margin-left: auto;
   }
-  .item-qty { color: var(--text-secondary); font-size: 0.75rem; }
-  .item-subtotal { margin-left: auto; color: var(--green); font-weight: 700; font-family: 'DM Mono', monospace; white-space: nowrap; font-size: 0.85rem; }
 
   .action-row { display:flex; gap:0.75rem; margin-top:1rem; }
   .action-btn {
@@ -153,12 +132,12 @@ const css = `
     background: #EDFAF4;
   }
   .btn-approve:hover:not(:disabled) { background: #D1FAE5; border-color: #0CAA6E; box-shadow: 0 2px 8px rgba(12,170,110,0.2); }
-  .btn-reject {
+  .btn-reject  {
     color: #DC3545;
     border-color: rgba(220,53,69,0.3);
     background: #FEF2F2;
   }
-  .btn-reject:hover:not(:disabled) { background: #FEE2E2; border-color: #DC3545; box-shadow: 0 2px 8px rgba(220,53,69,0.2); }
+  .btn-reject:hover:not(:disabled)  { background: #FEE2E2; border-color: #DC3545; box-shadow: 0 2px 8px rgba(220,53,69,0.2); }
   .action-btn:disabled { opacity:0.4; cursor:not-allowed; }
 
   .loading-wrap { display:flex; gap:0.35rem; align-items:center; justify-content:center; color:var(--text-secondary); font-size:0.83rem; padding:4rem 0; }
@@ -167,23 +146,29 @@ const css = `
   @keyframes ldot{0%,80%,100%{transform:scale(0.5);opacity:0.3}40%{transform:scale(1);opacity:1}}
 `;
 
-// Fallback image — only used when backend provides no imageUrl
-// Matches the same pattern as AdminProducts.jsx
-function getFallbackImage(productId) {
-  return `https://picsum.photos/seed/product-${productId}/200/200`;
-}
-
 export default function AdminCancelRequests() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData]           = useState([]);
+  const [loading, setLoading]     = useState(true);
   const [processing, setProcessing] = useState(null);
+  const [productMap, setProductMap] = useState({});
 
   useEffect(() => {
     axios.get("/orders/cancel-requests").then(res => {
       setData(res.data);
       setLoading(false);
     });
+    loadProducts();
   }, []);
+
+  const loadProducts = async () => {
+    try {
+      const res = await axios.get("/products");
+      const items = Array.isArray(res.data) ? res.data : res.data.content || [];
+      const map = {};
+      items.forEach(p => { map[p.productId] = p; });
+      setProductMap(map);
+    } catch {}
+  };
 
   const decide = async (orderId, approve) => {
     setProcessing(orderId);
@@ -210,12 +195,7 @@ export default function AdminCancelRequests() {
       </div>
 
       {loading ? (
-        <div className="loading-wrap">
-          <div className="loading-dot" />
-          <div className="loading-dot" />
-          <div className="loading-dot" />
-          &nbsp;Loading queue…
-        </div>
+        <div className="loading-wrap"><div className="loading-dot"/><div className="loading-dot"/><div className="loading-dot"/>&nbsp;Loading queue…</div>
       ) : data.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">✓</div>
@@ -236,46 +216,36 @@ export default function AdminCancelRequests() {
                 <div className="amount-meta">
                   <div className="amount-big">₹{o.totalAmount?.toLocaleString("en-IN")}</div>
                   <div className="date-small">
-                    {new Date(o.createdAt).toLocaleDateString("en-IN", {
-                      day: "numeric", month: "short", year: "numeric"
-                    })}
+                    {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                   </div>
                 </div>
               </div>
 
               <div className="refund-body">
                 <div className="items-label">Order Items</div>
-
-                {o.items?.map((item, i) => (
-                  <div key={i} className="item-row">
-
-                    {/* Product image — uses imageUrl from backend (set via ImgBB in AdminProducts) */}
-                    <div className="item-img-wrap">
+                {o.items?.map((item, i) => {
+                  const product = productMap[item.productId];
+                  return (
+                    <div key={i} className="item-row">
                       <img
-                        className="item-img"
-                        src={item.imageUrl || getFallbackImage(item.productId)}
-                        alt={item.productName || `Product #${item.productId}`}
-                        onError={e => {
-                          e.target.onerror = null;
-                          e.target.src = getFallbackImage(item.productId);
-                        }}
+                        src={product?.imageUrl || "https://via.placeholder.com/40"}
+                        alt={product?.productName || `Product #${item.productId}`}
+                        className="item-thumb"
                       />
-                    </div>
-
-                    {/* Item details */}
-                    <div className="item-details">
-                      <span className="item-prod">
-                        {item.productName || `Product #${item.productId}`}
+                      <div className="item-details">
+                        <span className="item-name">
+                          {product?.productName || `Product #${item.productId}`}
+                        </span>
+                        <span className="item-meta">
+                          Qty: {item.quantity} · Unit: ₹{item.price?.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                      <span className="item-subtotal">
+                        ₹{(item.price * item.quantity).toLocaleString("en-IN")}
                       </span>
-                      <span className="item-prod-id">#{item.productId}</span>
-                      <span className="item-qty">Qty: {item.quantity}</span>
                     </div>
-
-                    <span className="item-subtotal">
-                      ₹{(item.price * item.quantity).toLocaleString("en-IN")}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
 
                 <div className="action-row">
                   <button

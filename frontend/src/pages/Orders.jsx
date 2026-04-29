@@ -62,47 +62,27 @@ const styles = `
   .ib-journey-line.done { background: #00c46a; }
   .ib-journey-wrap { display: flex; flex-direction: column; align-items: center; }
 
-  /* ITEMS — new product card style */
+  /* ITEMS TABLE */
   .ib-items-title { font-weight: 700; color: #0f1c35; font-size: 0.85rem; margin-bottom: 0.75rem; }
-  .ib-items-list { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 1.25rem; }
+  .ib-items-list { border: 1px solid #ebe9e3; border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem; }
+  .ib-item-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; font-size: 0.85rem; border-bottom: 1px solid #f4f3f0; }
+  .ib-item-row:last-child { border-bottom: none; }
+  .ib-item-row-label { color: #555; display: flex; align-items: center; gap: 0.75rem; }
+  .ib-item-row-val { font-weight: 600; color: #0f1c35; white-space: nowrap; margin-left: 1rem; }
 
-  .ib-item-card {
-    display: flex; align-items: center; gap: 1rem;
-    background: #f8f7f4; border: 1px solid #ebe9e3; border-radius: 12px;
-    padding: 0.75rem 1rem; transition: background 0.15s;
+  /* PRODUCT THUMB */
+  .ib-product-thumb {
+    width: 40px; height: 40px; object-fit: cover;
+    border-radius: 6px; border: 1px solid #ebe9e3; flex-shrink: 0;
   }
-  .ib-item-card:hover { background: #f0ede6; }
-
-  .ib-item-thumb {
-    width: 56px; height: 56px; object-fit: cover;
-    border-radius: 10px; border: 1px solid #e0ddd6;
-    flex-shrink: 0; background: #ebe9e3;
-  }
-
-  .ib-item-details { flex: 1; min-width: 0; }
-  .ib-item-name {
-    font-weight: 700; color: #0f1c35; font-size: 0.9rem;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    margin-bottom: 0.2rem;
-  }
-  .ib-item-meta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-  .ib-item-pid { font-size: 0.72rem; color: #f0a500; font-weight: 700; }
-  .ib-item-unit { font-size: 0.78rem; color: #999; }
-  .ib-item-qty-badge {
-    font-size: 0.72rem; font-weight: 700;
-    background: #1b2a4a; color: #fff;
-    padding: 0.1rem 0.5rem; border-radius: 20px;
-  }
-  .ib-item-subtotal {
-    font-family: 'Playfair Display', serif;
-    font-size: 1rem; font-weight: 700; color: #0f1c35;
-    flex-shrink: 0;
-  }
+  .ib-product-info { display: flex; flex-direction: column; gap: 0.1rem; }
+  .ib-product-name { font-weight: 600; color: #0f1c35; font-size: 0.85rem; }
+  .ib-product-qty { font-size: 0.75rem; color: #999; }
 
   /* ALERTS */
   .ib-alert { padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1rem; font-weight: 600; }
-  .ib-alert-danger  { background: #fff2f2; border: 1px solid #fcc; color: #c0392b; }
-  .ib-alert-info    { background: #f0f7ff; border: 1px solid #b3d7ff; color: #1b6ab0; }
+  .ib-alert-danger { background: #fff2f2; border: 1px solid #fcc; color: #c0392b; }
+  .ib-alert-info { background: #f0f7ff; border: 1px solid #b3d7ff; color: #1b6ab0; }
   .ib-alert-success { background: #f0fff8; border: 1px solid #b3f0d5; color: #0a7a4a; }
   .ib-alert-warning { background: #fffbf0; border: 1px solid #fce4a0; color: #8a6000; }
 
@@ -112,8 +92,8 @@ const styles = `
     padding: 0.6rem 1.25rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700;
     cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
   }
-  .ib-action-btn.pay    { background: linear-gradient(135deg, #00c46a, #00a857); color: #fff; }
-  .ib-action-btn.pay:hover    { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,196,106,0.35); }
+  .ib-action-btn.pay { background: linear-gradient(135deg, #00c46a, #00a857); color: #fff; }
+  .ib-action-btn.pay:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,196,106,0.35); }
   .ib-action-btn.cancel { background: #fff; border: 1px solid #e74c3c; color: #e74c3c; }
   .ib-action-btn.cancel:hover { background: #e74c3c; color: #fff; }
   .ib-action-btn.refund { background: #fff; border: 1px solid #f0a500; color: #c47d00; }
@@ -128,86 +108,73 @@ const styles = `
   @media(max-width:600px) {
     .ib-order-head { flex-direction: column; }
     .ib-orders-title { font-size: 1.75rem; }
-    .ib-item-card { flex-wrap: wrap; }
-    .ib-item-subtotal { width: 100%; text-align: right; }
   }
 `;
 
 const STATUS_CONFIG = {
-  COMPLETED:          { label: "Completed",        dot: "#00c46a", bg: "#f0fff8", text: "#0a7a4a" },
-  FAILED:             { label: "Failed",           dot: "#e74c3c", bg: "#fff2f2", text: "#c0392b" },
-  PAYMENT_PENDING:    { label: "Payment Pending",  dot: "#f0a500", bg: "#fffbf0", text: "#8a6000" },
-  CREATED:            { label: "Processing",       dot: "#f0a500", bg: "#fffbf0", text: "#8a6000" },
-  INVENTORY_RESERVED: { label: "Reserved",         dot: "#1b6ab0", bg: "#f0f7ff", text: "#1b6ab0" },
-  CANCELLED:          { label: "Cancelled",        dot: "#aaa",    bg: "#f5f5f5", text: "#777"    },
-  CANCEL_REQUESTED:   { label: "Refund Requested", dot: "#f0a500", bg: "#fffbf0", text: "#8a6000" },
-  REFUNDED:           { label: "Refunded",         dot: "#1b6ab0", bg: "#f0f7ff", text: "#1b6ab0" },
-  REFUND_REJECTED:    { label: "Refund Rejected",  dot: "#e74c3c", bg: "#fff2f2", text: "#c0392b" },
+  COMPLETED:          { label: "Completed",         dot: "#00c46a", bg: "#f0fff8", text: "#0a7a4a" },
+  FAILED:             { label: "Failed",            dot: "#e74c3c", bg: "#fff2f2", text: "#c0392b" },
+  PAYMENT_PENDING:    { label: "Payment Pending",   dot: "#f0a500", bg: "#fffbf0", text: "#8a6000" },
+  CREATED:            { label: "Processing",        dot: "#f0a500", bg: "#fffbf0", text: "#8a6000" },
+  INVENTORY_RESERVED: { label: "Reserved",          dot: "#1b6ab0", bg: "#f0f7ff", text: "#1b6ab0" },
+  CANCELLED:          { label: "Cancelled",         dot: "#aaa",    bg: "#f5f5f5", text: "#777" },
+  CANCEL_REQUESTED:   { label: "Refund Requested",  dot: "#f0a500", bg: "#fffbf0", text: "#8a6000" },
+  REFUNDED:           { label: "Refunded",          dot: "#1b6ab0", bg: "#f0f7ff", text: "#1b6ab0" },
+  REFUND_REJECTED:    { label: "Refund Rejected",   dot: "#e74c3c", bg: "#fff2f2", text: "#c0392b" },
 };
 
 const JOURNEY_STEPS = ["Placed", "Payment", "Confirmed"];
 
 function getJourneyState(status) {
   const s = status?.toUpperCase();
-  if (s === "COMPLETED") return [2, 2, 2];
-  if (s === "FAILED")    return [2, 3, 3];
-  if (["PAYMENT_PENDING","CREATED","INVENTORY_RESERVED"].includes(s)) return [2, 1, 0];
-  if (["CANCELLED","CANCEL_REQUESTED"].includes(s)) return [2, 3, 3];
-  if (s === "REFUNDED")  return [2, 2, 2];
-  return [1, 0, 0];
+  if (s === "COMPLETED") return [2,2,2];
+  if (s === "FAILED") return [2,3,3];
+  if (["PAYMENT_PENDING","CREATED","INVENTORY_RESERVED"].includes(s)) return [2,1,0];
+  if (["CANCELLED","CANCEL_REQUESTED"].includes(s)) return [2,3,3];
+  if (s === "REFUNDED") return [2,2,2];
+  return [1,0,0];
 }
 
 const TABS = ["ALL","COMPLETED","PAYMENT_PENDING","FAILED","CANCELLED","REFUNDED"];
 
-/* Product thumbnail — ImgBB URL first, seeded picsum fallback */
-function ItemThumb({ src, name, productId }) {
-  const fallback = `https://picsum.photos/seed/${productId}/120/120`;
-  return (
-    <img
-      className="ib-item-thumb"
-      src={src || fallback}
-      alt={name || `Product #${productId}`}
-      onError={e => {
-        if (e.target.src !== fallback) { e.target.src = fallback; }
-        else { e.target.onerror = null; e.target.src = "https://via.placeholder.com/56?text=?"; }
-      }}
-    />
-  );
-}
-
 export default function Orders() {
-  const [orders,     setOrders]     = useState([]);
-  const [productMap, setProductMap] = useState({}); // productId → product
-  const [loading,    setLoading]    = useState(true);
-  const [tab,        setTab]        = useState("ALL");
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("ALL");
+  const [productMap, setProductMap] = useState({});
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadOrders();
+    loadProducts();
+  }, []);
 
-  const loadAll = async () => {
+  const loadOrders = async () => {
     try {
-      const [ordersRes, productsRes] = await Promise.all([
-        axios.get("/orders"),
-        axios.get("/products"),
-      ]);
-      setOrders(ordersRes.data.sort((a, b) => b.orderId - a.orderId));
-
-      const products = productsRes.data?.content ?? productsRes.data ?? [];
-      const map = {};
-      products.forEach(p => { map[p.productId] = p; });
-      setProductMap(map);
+      const res = await axios.get("/orders");
+      setOrders(res.data.sort((a, b) => b.orderId - a.orderId));
     } catch {}
     finally { setLoading(false); }
   };
 
+  const loadProducts = async () => {
+    try {
+      const res = await axios.get("/products");
+      const data = Array.isArray(res.data) ? res.data : res.data.content || [];
+      const map = {};
+      data.forEach(p => { map[p.productId] = p; });
+      setProductMap(map);
+    } catch {}
+  };
+
   const cancelOrder = async (id) => {
     if (!window.confirm("Cancel this order?")) return;
-    try { await axios.post(`/orders/cancel/${id}`); loadAll(); }
+    try { await axios.post(`/orders/cancel/${id}`); loadOrders(); }
     catch (e) { alert(e.response?.data?.message || "Cancel failed"); }
   };
 
   const requestRefund = async (id) => {
     if (!window.confirm("Request a refund for this order?")) return;
-    try { await axios.post(`/orders/cancel/${id}`); alert("Refund request submitted."); loadAll(); }
+    try { await axios.post(`/orders/cancel/${id}`); alert("Refund request submitted."); loadOrders(); }
     catch (e) { alert(e.response?.data?.message || "Refund request failed"); }
   };
 
@@ -225,22 +192,25 @@ export default function Orders() {
             orderId: order.orderId, razorpayOrderId: payData.transactionId,
             razorpayPaymentId: response.razorpay_payment_id, razorpaySignature: response.razorpay_signature,
           });
-          alert("Payment Successful!"); loadAll();
+          alert("Payment Successful!"); loadOrders();
         },
-        modal: { ondismiss: async () => { await axios.post("/payments/fail", { orderId: order.orderId }); loadAll(); } }
+        modal: { ondismiss: async () => { await axios.post("/payments/fail", { orderId: order.orderId }); loadOrders(); } }
       }).open();
     } catch { alert("Payment initiation failed"); }
   };
 
   const isCancellable = (s) => ["CREATED","INVENTORY_RESERVED","PAYMENT_PENDING"].includes(s?.toUpperCase());
 
-  const getDaysLeft = (createdAt) => {
-    const diffTime = new Date() - new Date(createdAt);
-    return 5 - Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  };
-
   const filtered = tab === "ALL" ? orders : orders.filter(o => o.status?.toUpperCase() === tab);
-  const countOf  = (t) => t === "ALL" ? orders.length : orders.filter(o => o.status?.toUpperCase() === t).length;
+  const countOf = (t) => t === "ALL" ? orders.length : orders.filter(o => o.status?.toUpperCase() === t).length;
+
+  const getDaysLeft = (createdAt) => {
+    const orderDate = new Date(createdAt);
+    const now = new Date();
+    const diffTime = now - orderDate;
+    const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return 5 - daysPassed;
+  };
 
   return (
     <div className="ib-orders">
@@ -254,14 +224,14 @@ export default function Orders() {
 
         <div className="ib-orders-tabs">
           {TABS.map(t => (
-            <button key={t} className={`ib-orders-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-              {t.replace(/_/g, " ")} ({countOf(t)})
+            <button key={t} className={`ib-orders-tab${tab===t?" active":""}`} onClick={() => setTab(t)}>
+              {t.replace(/_/g," ")} ({countOf(t)})
             </button>
           ))}
         </div>
 
         {loading ? (
-          <p style={{ color: "#999", textAlign: "center", padding: "3rem" }}>Loading your orders…</p>
+          <p style={{color:"#999",textAlign:"center",padding:"3rem"}}>Loading your orders…</p>
         ) : filtered.length === 0 ? (
           <div className="ib-orders-empty">
             <div className="ib-orders-empty-icon">📋</div>
@@ -271,24 +241,21 @@ export default function Orders() {
         ) : (
           filtered.map(order => {
             const cfg = STATUS_CONFIG[order.status?.toUpperCase()] || { label: order.status, dot: "#aaa", bg: "#f5f5f5", text: "#777" };
-            const journey      = getJourneyState(order.status);
-            const cancellable  = isCancellable(order.status);
-            const daysLeft     = getDaysLeft(order.createdAt);
+            const journey = getJourneyState(order.status);
+            const cancellable = isCancellable(order.status);
+            const daysLeft = getDaysLeft(order.createdAt);
             const refundExpired = daysLeft <= 0;
 
             return (
               <div className="ib-order-card" key={order.orderId}>
-                {/* ── Header ── */}
                 <div className="ib-order-head">
                   <div>
                     <div className="ib-order-id">Order <span>#{order.orderId}</span></div>
-                    <div className="ib-order-date">
-                      {new Date(order.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </div>
+                    <div className="ib-order-date">{new Date(order.createdAt).toLocaleString("en-IN",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-                    <span className="ib-status" style={{ background: cfg.bg, color: cfg.text }}>
-                      <span className="ib-status-dot" style={{ background: cfg.dot }} />
+                  <div style={{display:"flex",alignItems:"center",gap:"1rem",flexWrap:"wrap"}}>
+                    <span className="ib-status" style={{background:cfg.bg,color:cfg.text}}>
+                      <span className="ib-status-dot" style={{background:cfg.dot}} />
                       {cfg.label}
                     </span>
                     <div className="ib-order-amount">₹{order.totalAmount?.toLocaleString("en-IN")}</div>
@@ -296,58 +263,52 @@ export default function Orders() {
                 </div>
 
                 <div className="ib-order-body">
-                  {/* ── Journey tracker ── */}
-                  <div className="ib-journey" style={{ marginBottom: "1.25rem" }}>
+                  {/* JOURNEY */}
+                  <div className="ib-journey" style={{marginBottom:"1.25rem"}}>
                     {JOURNEY_STEPS.map((step, i) => {
-                      const state = journey[i];
+                      const state = journey[i]; // 0=pending, 1=current, 2=done, 3=fail
                       return (
                         <div className="ib-journey-step" key={step}>
                           <div className="ib-journey-wrap">
-                            <div className={`ib-journey-dot ${state === 2 ? "done" : state === 1 ? "current" : state === 3 ? "fail" : "pending"}`}>
-                              {state === 2 ? "✓" : state === 3 ? "✕" : i + 1}
+                            <div className={`ib-journey-dot ${state===2?"done":state===1?"current":state===3?"fail":"pending"}`}>
+                              {state===2?"✓":state===3?"✕":i+1}
                             </div>
                             <div className="ib-journey-label">{step}</div>
                           </div>
-                          {i < JOURNEY_STEPS.length - 1 && (
-                            <div className={`ib-journey-line${state === 2 ? " done" : ""}`} />
-                          )}
+                          {i < JOURNEY_STEPS.length-1 && <div className={`ib-journey-line${state===2?" done":""}`} />}
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* ── Failure reason ── */}
-                  {order.failureReason && (
-                    <div className="ib-alert ib-alert-danger">⚠ {order.failureReason}</div>
-                  )}
+                  {/* FAILURE */}
+                  {order.failureReason && <div className="ib-alert ib-alert-danger">⚠ {order.failureReason}</div>}
 
-                  {/* ── Items — now with images & full product info ── */}
+                  {/* ITEMS */}
                   {order.items?.length > 0 && (
                     <>
-                      <div className="ib-items-title">Items ({order.items.length})</div>
+                      <div className="ib-items-title">Items</div>
                       <div className="ib-items-list">
                         {order.items.map((item, idx) => {
                           const product = productMap[item.productId];
                           return (
-                            <div className="ib-item-card" key={idx}>
-                              <ItemThumb
-                                src={product?.imageUrl}
-                                name={product?.productName}
-                                productId={item.productId}
-                              />
-                              <div className="ib-item-details">
-                                <div className="ib-item-name">
-                                  {product?.productName ?? `Product #${item.productId}`}
+                            <div className="ib-item-row" key={idx}>
+                              <span className="ib-item-row-label">
+                                <img
+                                  src={product?.imageUrl || "https://via.placeholder.com/40"}
+                                  alt={product?.productName || `Product #${item.productId}`}
+                                  className="ib-product-thumb"
+                                />
+                                <div className="ib-product-info">
+                                  <span className="ib-product-name">
+                                    {product?.productName || `Product #${item.productId}`}
+                                  </span>
+                                  <span className="ib-product-qty">Qty: {item.quantity}</span>
                                 </div>
-                                <div className="ib-item-meta">
-                                  <span className="ib-item-pid">#{item.productId}</span>
-                                  <span className="ib-item-unit">₹{item.price?.toLocaleString("en-IN")} / unit</span>
-                                  <span className="ib-item-qty-badge">× {item.quantity}</span>
-                                </div>
-                              </div>
-                              <div className="ib-item-subtotal">
+                              </span>
+                              <span className="ib-item-row-val">
                                 ₹{(item.price * item.quantity).toLocaleString("en-IN")}
-                              </div>
+                              </span>
                             </div>
                           );
                         })}
@@ -355,33 +316,18 @@ export default function Orders() {
                     </>
                   )}
 
-                  {/* ── Status alerts ── */}
-                  {order.status?.toUpperCase() === "CANCEL_REQUESTED" && (
-                    <div className="ib-alert ib-alert-info">⏳ Refund request is under admin review.</div>
-                  )}
-                  {order.status?.toUpperCase() === "REFUNDED" && (
-                    <div className="ib-alert ib-alert-success">✅ Refund has been processed successfully.</div>
-                  )}
-                  {order.status?.toUpperCase() === "REFUND_REJECTED" && (
-                    <div className="ib-alert ib-alert-danger">❌ Refund request was rejected.</div>
-                  )}
-                  {order.status?.toUpperCase() === "COMPLETED" && !refundExpired && (
-                    <div className="ib-alert ib-alert-warning">
-                      ⏱ Refund window: {daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining
-                    </div>
-                  )}
+                  {/* STATUS ALERTS */}
+                  {order.status?.toUpperCase() === "CANCEL_REQUESTED" && <div className="ib-alert ib-alert-info">⏳ Refund request is under admin review.</div>}
+                  {order.status?.toUpperCase() === "REFUNDED" && <div className="ib-alert ib-alert-success">✅ Refund has been processed successfully.</div>}
+                  {order.status?.toUpperCase() === "REFUND_REJECTED" && <div className="ib-alert ib-alert-danger">❌ Refund request was rejected.</div>}
 
-                  {/* ── Actions ── */}
+                  {/* ACTIONS */}
                   <div className="ib-order-actions">
                     {cancellable && order.status?.toUpperCase() === "PAYMENT_PENDING" && (
-                      <button className="ib-action-btn pay" onClick={() => handlePayNow(order)}>
-                        💳 Pay Now
-                      </button>
+                      <button className="ib-action-btn pay" onClick={() => handlePayNow(order)}>💳 Pay Now</button>
                     )}
                     {cancellable && (
-                      <button className="ib-action-btn cancel" onClick={() => cancelOrder(order.orderId)}>
-                        Cancel Order
-                      </button>
+                      <button className="ib-action-btn cancel" onClick={() => cancelOrder(order.orderId)}>Cancel Order</button>
                     )}
                     {order.status?.toUpperCase() === "COMPLETED" && (
                       <button

@@ -122,73 +122,20 @@ const css = `
   }
   .expand-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; }
 
-  /* ── Updated item row with image ── */
+  /* ITEM ROW WITH PRODUCT DETAILS */
   .item-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.6rem 0;
-    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--border);
   }
   .item-row:last-child { border-bottom: none; }
-
   .item-thumb {
-    width: 44px;
-    height: 44px;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: #F2F4F9;
-    flex-shrink: 0;
+    width: 40px; height: 40px; object-fit: cover;
+    border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0;
   }
-
-  .item-thumb-placeholder {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: #F2F4F9;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    color: var(--text-muted);
-  }
-
-  .item-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    flex: 1;
-    min-width: 0;
-  }
-  .item-name {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .item-id {
-    font-size: 0.72rem;
-    color: var(--accent);
-    font-family: 'DM Mono', monospace;
-    font-weight: 600;
-  }
-
-  .item-meta {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-    font-family: 'DM Mono', 'Fira Code', monospace;
-    font-size: 0.78rem;
-    flex-shrink: 0;
-  }
-  .item-meta-label { color: var(--text-muted); font-size: 0.68rem; display: block; margin-bottom: 0.1rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  .item-meta-val   { color: var(--text-secondary); font-weight: 600; }
-  .item-total      { color: var(--green); font-weight: 700; font-size: 0.85rem; }
+  .item-details { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+  .item-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-meta { font-size: 0.74rem; color: var(--text-secondary); font-family: 'DM Mono', 'Fira Code', monospace; }
+  .item-total { font-family: 'DM Mono', 'Fira Code', monospace; font-size: 0.82rem; font-weight: 700; color: var(--green); white-space: nowrap; margin-left: auto; }
 
   .no-records { color: var(--text-secondary); font-size: 0.845rem; padding: 4rem; text-align: center; }
 
@@ -216,56 +163,37 @@ function Badge({ status }) {
   return <span className={`badge badge-${status?.toUpperCase()}`}>{status?.replace(/_/g, " ")}</span>;
 }
 
-/* ── Product thumbnail — falls back gracefully ── */
-function ItemThumb({ src, alt, productId }) {
-  const fallback = `https://picsum.photos/seed/${productId}/80/80`;
-  if (!src) {
-    return (
-      <img
-        className="item-thumb"
-        src={fallback}
-        alt={alt || `Product #${productId}`}
-        onError={e => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/44?text=?"; }}
-      />
-    );
-  }
-  return (
-    <img
-      className="item-thumb"
-      src={src}
-      alt={alt || `Product #${productId}`}
-      onError={e => { e.target.onerror = null; e.target.src = fallback; }}
-    />
-  );
-}
-
 export default function AdminOrders() {
   const [orders, setOrders]       = useState([]);
-  const [productMap, setProductMap] = useState({}); // productId → product
   const [loading, setLoading]     = useState(true);
   const [filter, setFilter]       = useState("ALL");
   const [expanded, setExpanded]   = useState(null);
   const [processing, setProcessing] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [productMap, setProductMap]   = useState({});
   const itemsPerPage = 15;
 
   const load = () => {
     setLoading(true);
-    Promise.all([
-      axios.get("/orders/admin/all"),
-      axios.get("/products"),
-    ]).then(([ordersRes, productsRes]) => {
-      setOrders(ordersRes.data.sort((a, b) => b.orderId - a.orderId));
-
-      // Build id → product lookup map
-      const products = productsRes.data?.content ?? productsRes.data ?? [];
-      const map = {};
-      products.forEach(p => { map[p.productId] = p; });
-      setProductMap(map);
-    }).finally(() => setLoading(false));
+    axios.get("/orders/admin/all")
+      .then(res => setOrders(res.data.sort((a, b) => b.orderId - a.orderId)))
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  const loadProducts = async () => {
+    try {
+      const res = await axios.get("/products");
+      const data = Array.isArray(res.data) ? res.data : res.data.content || [];
+      const map = {};
+      data.forEach(p => { map[p.productId] = p; });
+      setProductMap(map);
+    } catch {}
+  };
+
+  useEffect(() => {
+    load();
+    loadProducts();
+  }, []);
 
   const decide = async (id, approve) => {
     setProcessing(id);
@@ -314,9 +242,9 @@ export default function AdminOrders() {
               </thead>
               <tbody>
                 {paginated.map(o => {
-                  const isCR = o.status === "CANCEL_REQUESTED";
-                  const busy = processing === o.orderId;
-                  const open = expanded === o.orderId;
+                  const isCR  = o.status === "CANCEL_REQUESTED";
+                  const busy  = processing === o.orderId;
+                  const open  = expanded === o.orderId;
                   return (
                     <>
                       <tr key={o.orderId}>
@@ -344,46 +272,30 @@ export default function AdminOrders() {
                         <tr key={`${o.orderId}-exp`} className="expand-row">
                           <td colSpan={7}>
                             <div className="expand-inner">
-                              <div className="expand-label">Order Items · {o.items?.length ?? 0}</div>
-
+                              <div className="expand-label">Order Items</div>
                               {o.items?.map((item, i) => {
                                 const product = productMap[item.productId];
                                 return (
                                   <div key={i} className="item-row">
-                                    {/* Thumbnail — uses ImgBB URL if available */}
-                                    <ItemThumb
-                                      src={product?.imageUrl}
-                                      alt={product?.productName}
-                                      productId={item.productId}
+                                    <img
+                                      src={product?.imageUrl || "https://via.placeholder.com/40"}
+                                      alt={product?.productName || `Product #${item.productId}`}
+                                      className="item-thumb"
                                     />
-
-                                    {/* Name + ID */}
-                                    <div className="item-info">
+                                    <div className="item-details">
                                       <span className="item-name">
-                                        {product?.productName ?? `Product #${item.productId}`}
+                                        {product?.productName || `Product #${item.productId}`}
                                       </span>
-                                      <span className="item-id">#{item.productId}</span>
+                                      <span className="item-meta">
+                                        Qty: {item.quantity} · Unit: ₹{item.price?.toLocaleString("en-IN")}
+                                      </span>
                                     </div>
-
-                                    {/* Qty / Unit / Total */}
-                                    <div className="item-meta">
-                                      <div>
-                                        <span className="item-meta-label">Qty</span>
-                                        <span className="item-meta-val">{item.quantity}</span>
-                                      </div>
-                                      <div>
-                                        <span className="item-meta-label">Unit price</span>
-                                        <span className="item-meta-val">₹{item.price?.toLocaleString("en-IN")}</span>
-                                      </div>
-                                      <div>
-                                        <span className="item-meta-label">Subtotal</span>
-                                        <span className="item-total">₹{(item.price * item.quantity).toLocaleString("en-IN")}</span>
-                                      </div>
-                                    </div>
+                                    <span className="item-total">
+                                      ₹{(item.price * item.quantity).toLocaleString("en-IN")}
+                                    </span>
                                   </div>
                                 );
                               })}
-
                               {o.failureReason && (
                                 <div style={{ color:"var(--red)", marginTop:"0.625rem", fontSize:"0.78rem", padding:"0.5rem", background:"var(--red-bg)", borderRadius:"6px", border:"1px solid var(--red-border)" }}>
                                   ⚠ {o.failureReason}

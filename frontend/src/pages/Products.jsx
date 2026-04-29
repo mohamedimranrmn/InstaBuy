@@ -50,8 +50,8 @@ const styles = `
   .ib-prod-card:hover { transform: translateY(-5px); box-shadow: 0 24px 56px rgba(0,0,0,0.1); border-color: transparent; }
   .ib-prod-card.unavailable { opacity: 0.6; }
 
-  .ib-prod-img-wrap { position: relative; overflow: hidden; height: 220px; }
-  .ib-prod-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
+  .ib-prod-img-wrap { position: relative; overflow: hidden; height: 220px; background: #f4f3f0; }
+  .ib-prod-img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.4s; padding: 0.5rem; }
   .ib-prod-card:hover .ib-prod-img { transform: scale(1.05); }
 
   .ib-prod-img-overlay {
@@ -145,7 +145,14 @@ export default function Products() {
 
   const handleAdd = (p) => {
     if (p.deleted || p.availableQuantity <= 0) return;
-    addToCart({ id: p.productId, name: p.productName, price: p.price });
+
+    addToCart({
+      id: p.productId,
+      name: p.productName,
+      price: p.price,
+      imageUrl: p.imageUrl
+    });
+
     setAdded(p.productId);
     setToast(`"${p.productName}" added to cart!`);
     setTimeout(() => { setAdded(null); setToast(null); }, 2000);

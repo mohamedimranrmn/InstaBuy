@@ -74,8 +74,18 @@ export default function Register() {
     try {
       const res = await axios.post("/auth/register", { name, email, password });
       const token = res.data.token || res.data.jwt || res.data.accessToken;
-      if (token) localStorage.setItem("token", token);
-      window.location.href = "/products";
+      if (token) {
+        localStorage.setItem("token", token);
+        // Decode JWT payload to extract role and persist it — App.jsx reads localStorage("role")
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const raw = (payload.role || payload.authorities || "CUSTOMER").toString().toUpperCase();
+        const resolvedRole = raw.includes("ADMIN") ? "ADMIN" : "CUSTOMER";
+        localStorage.setItem("role", resolvedRole);
+        window.location.href = resolvedRole === "ADMIN" ? "/admin" : "/products";
+      } else {
+        // Registration succeeded but no token returned — send to login
+        window.location.href = "/login";
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Try again.");
     } finally { setLoading(false); }

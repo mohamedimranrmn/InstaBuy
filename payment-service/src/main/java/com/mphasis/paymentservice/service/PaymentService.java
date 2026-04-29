@@ -76,6 +76,7 @@ public class PaymentService {
                 .stream()
                 .map(p -> new PaymentResponse(
                         p.getId(),
+                        p.getOrderId(),
                         p.getStatus().name(),
                         p.getTransactionId(),
                         "Fetched",
@@ -91,6 +92,7 @@ public class PaymentService {
 
         return new PaymentResponse(
                 payment.getId(),
+                payment.getOrderId(),
                 payment.getStatus().name(),
                 payment.getTransactionId(),
                 "Fetched",
@@ -118,8 +120,8 @@ public class PaymentService {
             log.warn("Payment already exists for orderId={} with status={}", orderId, p.getStatus());
 
             if (p.getStatus() == PaymentStatus.SUCCESS) {
-                return new PaymentResponse(
-                        p.getId(),
+                return new PaymentResponse(p.getId(),
+                        p.getOrderId(),
                         "SUCCESS",
                         p.getTransactionId(),
                         "Payment already completed",
@@ -129,6 +131,7 @@ public class PaymentService {
 
             return new PaymentResponse(
                     p.getId(),
+                    p.getOrderId(),
                     "PENDING",
                     p.getTransactionId(),
                     "Reusing existing payment",
@@ -164,6 +167,7 @@ public class PaymentService {
 
             return new PaymentResponse(
                     payment.getId(),
+                    payment.getOrderId(),
                     "PENDING",
                     razorpayOrderId,
                     "Order created",
