@@ -223,7 +223,7 @@ export default function AdminDashboard() {
   const completed  = orders.filter(o => o.status?.toUpperCase() === "COMPLETED");
   const pending    = orders.filter(o => ["PAYMENT_PENDING","CREATED","INVENTORY_RESERVED"].includes(o.status?.toUpperCase()));
   const revenue    = completed.reduce((s, o) => s + (o.totalAmount ?? 0), 0);
-  const recent     = [...orders].sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)).slice(0, 6);
+  const recent     = [...orders].sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)).slice(0, 4);
 
   const CARDS = [
     { label: "Total Orders", value: orders.length,    accent: "accent-blue",   icon: "📦", iconCls: "si-blue",   meta: "all time" },

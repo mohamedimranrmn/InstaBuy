@@ -32,6 +32,10 @@ public class UserService {
     }
 
     public User createAdmin(User user) {
+        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+            throw new BadRequestException("An account with this email already exists");
+        }
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setRole(Role.ADMIN);
 
@@ -49,6 +53,10 @@ public class UserService {
     }
 
     public User createCustomer(User user) {
+        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+            throw new BadRequestException("An account with this email already exists");
+        }
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setRole(Role.CUSTOMER);
 

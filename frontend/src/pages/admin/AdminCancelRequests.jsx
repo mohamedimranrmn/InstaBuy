@@ -90,19 +90,33 @@ const css = `
     letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem;
   }
 
+  /* ITEM ROW WITH PRODUCT DETAILS */
   .item-row {
-    display:flex; align-items:center; gap:1.5rem;
-    padding:0.5rem 0.75rem;
+    display: flex; align-items: center; gap: 0.875rem;
+    padding: 0.625rem 0.75rem;
     margin-bottom: 0.25rem;
     border-radius: var(--radius);
-    font-size:0.82rem;
-    font-family:'DM Mono','Fira Code',monospace;
     background: #F8F9FC;
     border: 1px solid var(--border);
   }
-  .item-prod { color: var(--accent); font-weight: 600; }
-  .item-qty { color: var(--text-secondary); }
-  .item-subtotal { margin-left: auto; color: var(--green); font-weight: 700; }
+  .item-thumb {
+    width: 40px; height: 40px; object-fit: cover;
+    border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .item-details { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+  .item-name {
+    font-size: 0.82rem; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .item-meta {
+    font-size: 0.74rem; color: var(--text-secondary);
+    font-family: 'DM Mono', 'Fira Code', monospace;
+  }
+  .item-subtotal {
+    font-family: 'DM Mono', 'Fira Code', monospace;
+    font-size: 0.82rem; font-weight: 700;
+    color: var(--green); white-space: nowrap; margin-left: auto;
+  }
 
   .action-row { display:flex; gap:0.75rem; margin-top:1rem; }
   .action-btn {
@@ -133,16 +147,28 @@ const css = `
 `;
 
 export default function AdminCancelRequests() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData]           = useState([]);
+  const [loading, setLoading]     = useState(true);
   const [processing, setProcessing] = useState(null);
+  const [productMap, setProductMap] = useState({});
 
   useEffect(() => {
     axios.get("/orders/cancel-requests").then(res => {
       setData(res.data);
       setLoading(false);
     });
+    loadProducts();
   }, []);
+
+  const loadProducts = async () => {
+    try {
+      const res = await axios.get("/products");
+      const items = Array.isArray(res.data) ? res.data : res.data.content || [];
+      const map = {};
+      items.forEach(p => { map[p.productId] = p; });
+      setProductMap(map);
+    } catch {}
+  };
 
   const decide = async (orderId, approve) => {
     setProcessing(orderId);
@@ -197,13 +223,30 @@ export default function AdminCancelRequests() {
 
               <div className="refund-body">
                 <div className="items-label">Order Items</div>
-                {o.items?.map((item, i) => (
-                  <div key={i} className="item-row">
-                    <span className="item-prod">Product #{item.productId}</span>
-                    <span className="item-qty">Qty: {item.quantity}</span>
-                    <span className="item-subtotal">₹{(item.price * item.quantity).toLocaleString("en-IN")}</span>
-                  </div>
-                ))}
+                {o.items?.map((item, i) => {
+                  const product = productMap[item.productId];
+                  return (
+                    <div key={i} className="item-row">
+                      <img
+                        src={product?.imageUrl || "https://via.placeholder.com/40"}
+                        alt={product?.productName || `Product #${item.productId}`}
+                        className="item-thumb"
+                      />
+                      <div className="item-details">
+                        <span className="item-name">
+                          {product?.productName || `Product #${item.productId}`}
+                        </span>
+                        <span className="item-meta">
+                          Qty: {item.quantity} · Unit: ₹{item.price?.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                      <span className="item-subtotal">
+                        ₹{(item.price * item.quantity).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  );
+                })}
+
                 <div className="action-row">
                   <button
                     className="action-btn btn-approve"

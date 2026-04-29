@@ -9,6 +9,8 @@ const css = `
   .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.03em; }
   .page-sub { font-size: 0.83rem; color: var(--text-secondary); margin-top: 0.3rem; }
 
+  .header-actions { display:flex; gap:0.625rem; }
+
   .toast-msg {
     padding:0.75rem 1rem; border-radius:var(--radius-lg); font-size:0.83rem;
     font-weight:600; margin-bottom:1rem; border:1px solid;
@@ -17,68 +19,24 @@ const css = `
   .toast-success { background:#EDFAF4; border-color:rgba(12,170,110,0.25); color:#0CAA6E; }
   .toast-error   { background:#FEF2F2; border-color:rgba(220,53,69,0.25); color:#DC3545; }
 
-  .create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
-  @media(max-width:680px) { .create-grid { grid-template-columns: 1fr; } }
-
-  .create-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    padding: 1.375rem;
-    box-shadow: var(--shadow-sm);
-    position: relative; overflow: hidden;
-  }
-  .create-card::before {
-    content:'';
-    position:absolute; top:0; left:0; right:0; height:3px;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  }
-  .create-card.admin-card::before  { background: linear-gradient(90deg, #4361EE, #7B8FF7); }
-  .create-card.customer-card::before { background: linear-gradient(90deg, #D97706, #FBBF24); }
-
-  .create-card-header { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 1.125rem; padding-top: 0.25rem; }
-  .card-header-icon {
-    width: 32px; height: 32px; border-radius: 8px;
-    display:flex; align-items:center; justify-content:center; font-size:0.9rem;
-  }
-  .card-header-icon.blue { background: #EEF2FF; }
-  .card-header-icon.amber { background: #FFFBEB; }
-  .create-card-title { font-size: 0.885rem; font-weight: 700; }
-  .create-card-title.blue { color: #4361EE; }
-  .create-card-title.amber { color: #D97706; }
-
-  .form-field { margin-bottom: 0.875rem; }
-  .form-label { font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.35rem; text-transform:uppercase; letter-spacing:0.04em; }
-  .form-input {
-    width: 100%; padding: 0.575rem 0.875rem;
-    background: var(--bg-base); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); color: var(--text-primary);
-    font-size: 0.845rem; outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    box-sizing: border-box; font-family:'DM Sans',sans-serif;
-  }
-  .form-input::placeholder { color: var(--text-muted); }
-  .form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(67,97,238,0.1); background:var(--bg-card); }
-
-  .create-btn {
-    width: 100%; padding: 0.65rem;
-    border-radius: var(--radius-lg);
-    font-size: 0.845rem; font-weight: 700;
-    cursor: pointer; transition: all 0.15s;
-    margin-top: 0.25rem; border: none;
+  .add-btn {
+    padding:0.575rem 1.25rem;
+    border-radius:var(--radius-lg); border:none;
+    font-size:0.845rem; font-weight:700; cursor:pointer;
+    transition:all 0.15s; white-space:nowrap;
+    display:flex; align-items:center; gap:0.4rem;
     font-family:'DM Sans',sans-serif;
   }
-  .create-btn.blue {
-    background: #4361EE; color: #fff;
-    box-shadow: 0 2px 8px rgba(67,97,238,0.25);
+  .add-btn.blue {
+    background:#4361EE; color:#fff;
+    box-shadow:0 2px 8px rgba(67,97,238,0.25);
   }
-  .create-btn.blue:hover { background:#3451D1; box-shadow:0 4px 12px rgba(67,97,238,0.35); transform:translateY(-1px); }
-  .create-btn.amber {
-    background: #D97706; color: #fff;
-    box-shadow: 0 2px 8px rgba(217,119,6,0.25);
+  .add-btn.blue:hover { background:#3451D1; box-shadow:0 4px 12px rgba(67,97,238,0.35); transform:translateY(-1px); }
+  .add-btn.amber {
+    background:#D97706; color:#fff;
+    box-shadow:0 2px 8px rgba(217,119,6,0.25);
   }
-  .create-btn.amber:hover { background:#B45309; box-shadow:0 4px 12px rgba(217,119,6,0.35); transform:translateY(-1px); }
-  .create-btn:disabled { opacity: 0.45; cursor: not-allowed; transform:none !important; }
+  .add-btn.amber:hover { background:#B45309; box-shadow:0 4px 12px rgba(217,119,6,0.35); transform:translateY(-1px); }
 
   .toolbar { display:flex; gap:0.875rem; margin-bottom:1.125rem; }
   .search-wrap { position:relative; flex:1; max-width:320px; }
@@ -153,21 +111,179 @@ const css = `
   .page-btn:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
   .page-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 2px 6px rgba(67,97,238,0.25); }
   .page-btn:disabled { opacity:0.3; cursor:not-allowed; }
+
+  /* ── MODAL ── */
+  .modal-backdrop {
+    position:fixed; inset:0; background:rgba(0,0,0,0.45); backdrop-filter:blur(3px);
+    display:flex; align-items:center; justify-content:center;
+    z-index:9999; padding:1rem;
+    animation: backdropIn 0.18s ease;
+  }
+  @keyframes backdropIn { from { opacity:0 } to { opacity:1 } }
+
+  .modal-card {
+    background:var(--bg-card); border:1px solid var(--border);
+    border-radius:var(--radius-xl); box-shadow:0 24px 64px rgba(0,0,0,0.18);
+    width:100%; max-width:420px;
+    animation: modalSlideIn 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    overflow:hidden;
+  }
+  @keyframes modalSlideIn { from { opacity:0; transform:scale(0.93) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+  .modal-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:1.125rem 1.375rem 1rem;
+    border-bottom:1px solid var(--border);
+  }
+  .modal-header-left { display:flex; align-items:center; gap:0.625rem; }
+  .modal-icon {
+    width:32px; height:32px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:0.9rem;
+  }
+  .modal-icon.blue  { background:#EEF2FF; }
+  .modal-icon.amber { background:#FFFBEB; }
+  .modal-title { font-size:0.93rem; font-weight:700; }
+  .modal-title.blue  { color:#4361EE; }
+  .modal-title.amber { color:#D97706; }
+  .modal-close {
+    width:28px; height:28px; border-radius:6px; border:1px solid var(--border);
+    background:transparent; color:var(--text-secondary); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1rem; line-height:1; transition:all 0.15s;
+  }
+  .modal-close:hover { background:var(--bg-base); color:var(--text-primary); }
+
+  .modal-body { padding:1.25rem 1.375rem; }
+
+  .modal-accent-bar {
+    height:3px; width:100%;
+  }
+  .modal-accent-bar.blue  { background:linear-gradient(90deg,#4361EE,#7B8FF7); }
+  .modal-accent-bar.amber { background:linear-gradient(90deg,#D97706,#FBBF24); }
+
+  .form-field { margin-bottom:0.875rem; }
+  .form-label { font-size:0.72rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:0.35rem; text-transform:uppercase; letter-spacing:0.04em; }
+  .form-input {
+    width:100%; padding:0.575rem 0.875rem;
+    background:var(--bg-base); border:1px solid var(--border);
+    border-radius:var(--radius-lg); color:var(--text-primary);
+    font-size:0.845rem; outline:none;
+    transition:border-color 0.15s, box-shadow 0.15s;
+    box-sizing:border-box; font-family:'DM Sans',sans-serif;
+  }
+  .form-input::placeholder { color:var(--text-muted); }
+  .form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(67,97,238,0.1); background:var(--bg-card); }
+
+  .modal-footer {
+    display:flex; gap:0.625rem; justify-content:flex-end;
+    padding:1rem 1.375rem 1.25rem;
+    border-top:1px solid var(--border);
+  }
+  .modal-cancel-btn {
+    padding:0.55rem 1.1rem; border-radius:var(--radius-lg);
+    border:1px solid var(--border); background:var(--bg-base);
+    color:var(--text-secondary); font-size:0.845rem; font-weight:600;
+    cursor:pointer; transition:all 0.15s; font-family:'DM Sans',sans-serif;
+  }
+  .modal-cancel-btn:hover { background:var(--bg-card); border-color:var(--text-muted); color:var(--text-primary); }
+  .modal-submit-btn {
+    padding:0.55rem 1.25rem; border-radius:var(--radius-lg);
+    border:none; font-size:0.845rem; font-weight:700;
+    cursor:pointer; transition:all 0.15s; font-family:'DM Sans',sans-serif;
+  }
+  .modal-submit-btn.blue  { background:#4361EE; color:#fff; box-shadow:0 2px 8px rgba(67,97,238,0.25); }
+  .modal-submit-btn.blue:hover:not(:disabled)  { background:#3451D1; box-shadow:0 4px 12px rgba(67,97,238,0.35); transform:translateY(-1px); }
+  .modal-submit-btn.amber { background:#D97706; color:#fff; box-shadow:0 2px 8px rgba(217,119,6,0.25); }
+  .modal-submit-btn.amber:hover:not(:disabled) { background:#B45309; box-shadow:0 4px 12px rgba(217,119,6,0.35); transform:translateY(-1px); }
+  .modal-submit-btn:disabled { opacity:0.45; cursor:not-allowed; transform:none !important; }
 `;
 
 const EMPTY = { name: "", email: "", password: "" };
+
+/* ── Create User Modal ── */
+function CreateUserModal({ role, onClose, onSave, submitting }) {
+  const [form, setForm] = useState(EMPTY);
+  const isAdmin = role === "admin";
+  const accent  = isAdmin ? "blue" : "amber";
+
+  const handleSubmit = () => onSave(role, form, () => setForm(EMPTY));
+
+  return (
+    <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal-card">
+        <div className={`modal-accent-bar ${accent}`} />
+        <div className="modal-header">
+          <div className="modal-header-left">
+            <div className={`modal-icon ${accent}`}>{isAdmin ? "🛡" : "👤"}</div>
+            <div className={`modal-title ${accent}`}>{isAdmin ? "Create Admin Account" : "Create Customer Account"}</div>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="modal-body">
+          <div className="form-field">
+            <label className="form-label">Full Name</label>
+            <input
+              className="form-input"
+              placeholder={isAdmin ? "Admin name" : "Customer name"}
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Email Address</label>
+            <input
+              className="form-input"
+              placeholder={isAdmin ? "admin@example.com" : "user@example.com"}
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Password</label>
+            <input
+              className="form-input"
+              type="password"
+              placeholder="••••••••"
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="modal-cancel-btn" onClick={onClose}>Cancel</button>
+          <button
+            className={`modal-submit-btn ${accent}`}
+            onClick={handleSubmit}
+            disabled={submitting === role}
+          >
+            {submitting === role ? "Creating…" : `+ Create ${isAdmin ? "Admin" : "Customer"}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
-  const [adminForm, setAdminForm] = useState(EMPTY);
-  const [custForm, setCustForm] = useState(EMPTY);
   const [submitting, setSubmitting] = useState(null);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [addModal, setAddModal] = useState(null); // "admin" | "customer" | null
   const itemsPerPage = 10;
   const API_KEY = "0aK4VOyO5dOwBEBjJG6+cbio1ENbTNYVqi0elOkWnvo=";
+
+  const authHeaders = () => {
+    const token = localStorage.getItem("token");
+    return {
+      "X-Internal-Key": API_KEY,
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    };
+  };
 
   const showToast = (type, msg) => {
     setToast({ type, msg });
@@ -176,7 +292,7 @@ export default function AdminUsers() {
 
   const loadUsers = () => {
     setLoading(true);
-    axios.get("/users/getAll", { headers: { "X-Internal-Key": API_KEY } })
+    axios.get("/users/getAll", { headers: authHeaders() })
       .then(res => setUsers(res.data))
       .catch(() => showToast("error", "Failed to load users"))
       .finally(() => setLoading(false));
@@ -184,14 +300,13 @@ export default function AdminUsers() {
 
   useEffect(() => { loadUsers(); }, []);
 
-  const handleCreate = async (role) => {
-    const form = role === "admin" ? adminForm : custForm;
-    const setForm = role === "admin" ? setAdminForm : setCustForm;
+  const handleCreate = async (role, form, resetForm) => {
     if (!form.name || !form.email || !form.password) { showToast("error", "All fields are required"); return; }
     setSubmitting(role);
     try {
-      await axios.post(`/users/create-${role}`, form, { headers: { "X-Internal-Key": API_KEY } });
-      setForm(EMPTY);
+      await axios.post(`/users/create-${role}`, form, { headers: authHeaders() });
+      resetForm();
+      setAddModal(null);
       showToast("success", `${role === "admin" ? "Admin" : "Customer"} account created`);
       loadUsers();
     } catch { showToast("error", "Failed to create account"); }
@@ -199,18 +314,18 @@ export default function AdminUsers() {
   };
 
   const softDeleteUser = async (id) => {
-    try { await axios.patch(`/users/${id}/soft-delete`, null, { headers: { "X-Internal-Key": API_KEY } }); loadUsers(); showToast("success", `User #${id} deactivated`); }
+    try { await axios.patch(`/users/${id}/soft-delete`, null, { headers: authHeaders() }); loadUsers(); showToast("success", `User #${id} deactivated`); }
     catch { showToast("error", "Action failed"); }
   };
 
   const restoreUser = async (id) => {
-    try { await axios.patch(`/users/${id}/restore`, null, { headers: { "X-Internal-Key": API_KEY } }); loadUsers(); showToast("success", `User #${id} restored`); }
+    try { await axios.patch(`/users/${id}/restore`, null, { headers: authHeaders() }); loadUsers(); showToast("success", `User #${id} restored`); }
     catch { showToast("error", "Action failed"); }
   };
 
   const hardDeleteUser = async (id) => {
     if (!window.confirm(`Permanently delete user #${id}? This cannot be undone.`)) return;
-    try { await axios.delete(`/users/${id}`, { headers: { "X-Internal-Key": API_KEY } }); loadUsers(); showToast("success", `User #${id} deleted`); }
+    try { await axios.delete(`/users/${id}`, { headers: authHeaders() }); loadUsers(); showToast("success", `User #${id} deleted`); }
     catch { showToast("error", "Delete failed"); }
   };
 
@@ -227,10 +342,23 @@ export default function AdminUsers() {
     <div className="users-page">
       <style>{css}</style>
 
+      {addModal && (
+        <CreateUserModal
+          role={addModal}
+          onClose={() => setAddModal(null)}
+          onSave={handleCreate}
+          submitting={submitting}
+        />
+      )}
+
       <div className="page-header">
         <div>
           <div className="page-title">Users</div>
           <div className="page-sub">{loading ? "Loading…" : `${users.length} total accounts`}</div>
+        </div>
+        <div className="header-actions">
+          <button className="add-btn blue"  onClick={() => setAddModal("admin")}>🛡 Add Admin</button>
+          <button className="add-btn amber" onClick={() => setAddModal("customer")}>👤 Add Customer</button>
         </div>
       </div>
 
@@ -239,46 +367,6 @@ export default function AdminUsers() {
           {toast.type === "error" ? "⚠" : "✓"} {toast.msg}
         </div>
       )}
-
-      <div className="create-grid">
-        <div className="create-card admin-card">
-          <div className="create-card-header">
-            <div className="card-header-icon blue">🛡</div>
-            <div className="create-card-title blue">Create Admin Account</div>
-          </div>
-          <div className="form-field"><label className="form-label">Full Name</label>
-            <input className="form-input" placeholder="Admin name" value={adminForm.name} onChange={e => setAdminForm({ ...adminForm, name: e.target.value })} />
-          </div>
-          <div className="form-field"><label className="form-label">Email Address</label>
-            <input className="form-input" placeholder="admin@example.com" value={adminForm.email} onChange={e => setAdminForm({ ...adminForm, email: e.target.value })} />
-          </div>
-          <div className="form-field"><label className="form-label">Password</label>
-            <input className="form-input" type="password" placeholder="••••••••" value={adminForm.password} onChange={e => setAdminForm({ ...adminForm, password: e.target.value })} />
-          </div>
-          <button className="create-btn blue" onClick={() => handleCreate("admin")} disabled={submitting === "admin"}>
-            {submitting === "admin" ? "Creating…" : "+ Create Admin"}
-          </button>
-        </div>
-
-        <div className="create-card customer-card">
-          <div className="create-card-header">
-            <div className="card-header-icon amber">👤</div>
-            <div className="create-card-title amber">Create Customer Account</div>
-          </div>
-          <div className="form-field"><label className="form-label">Full Name</label>
-            <input className="form-input" placeholder="Customer name" value={custForm.name} onChange={e => setCustForm({ ...custForm, name: e.target.value })} />
-          </div>
-          <div className="form-field"><label className="form-label">Email Address</label>
-            <input className="form-input" placeholder="user@example.com" value={custForm.email} onChange={e => setCustForm({ ...custForm, email: e.target.value })} />
-          </div>
-          <div className="form-field"><label className="form-label">Password</label>
-            <input className="form-input" type="password" placeholder="••••••••" value={custForm.password} onChange={e => setCustForm({ ...custForm, password: e.target.value })} />
-          </div>
-          <button className="create-btn amber" onClick={() => handleCreate("customer")} disabled={submitting === "customer"}>
-            {submitting === "customer" ? "Creating…" : "+ Create Customer"}
-          </button>
-        </div>
-      </div>
 
       <div className="toolbar">
         <div className="search-wrap">

@@ -1,11 +1,7 @@
 package com.mphasis.userservice.exception;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
-
-@ResponseStatus(HttpStatus.UNAUTHORIZED)
-public class UnauthorizedException extends RuntimeException {
+public class UnauthorizedException extends BaseException {
     public UnauthorizedException(String message) {
-        super(message);
+        super(message, "UNAUTHORIZED", 401);
     }
 }

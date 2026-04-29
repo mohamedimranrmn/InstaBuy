@@ -65,10 +65,19 @@ const styles = `
   /* ITEMS TABLE */
   .ib-items-title { font-weight: 700; color: #0f1c35; font-size: 0.85rem; margin-bottom: 0.75rem; }
   .ib-items-list { border: 1px solid #ebe9e3; border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem; }
-  .ib-item-row { display: flex; justify-content: space-between; padding: 0.65rem 1rem; font-size: 0.85rem; border-bottom: 1px solid #f4f3f0; }
+  .ib-item-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; font-size: 0.85rem; border-bottom: 1px solid #f4f3f0; }
   .ib-item-row:last-child { border-bottom: none; }
-  .ib-item-row-label { color: #555; }
-  .ib-item-row-val { font-weight: 600; color: #0f1c35; }
+  .ib-item-row-label { color: #555; display: flex; align-items: center; gap: 0.75rem; }
+  .ib-item-row-val { font-weight: 600; color: #0f1c35; white-space: nowrap; margin-left: 1rem; }
+
+  /* PRODUCT THUMB */
+  .ib-product-thumb {
+    width: 40px; height: 40px; object-fit: cover;
+    border-radius: 6px; border: 1px solid #ebe9e3; flex-shrink: 0;
+  }
+  .ib-product-info { display: flex; flex-direction: column; gap: 0.1rem; }
+  .ib-product-name { font-weight: 600; color: #0f1c35; font-size: 0.85rem; }
+  .ib-product-qty { font-size: 0.75rem; color: #999; }
 
   /* ALERTS */
   .ib-alert { padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1rem; font-weight: 600; }
@@ -132,15 +141,29 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("ALL");
+  const [productMap, setProductMap] = useState({});
 
-  useEffect(() => { loadOrders(); }, []);
+  useEffect(() => {
+    loadOrders();
+    loadProducts();
+  }, []);
 
   const loadOrders = async () => {
     try {
       const res = await axios.get("/orders");
-      setOrders(res.data.sort((a,b) => b.orderId - a.orderId));
+      setOrders(res.data.sort((a, b) => b.orderId - a.orderId));
     } catch {}
     finally { setLoading(false); }
+  };
+
+  const loadProducts = async () => {
+    try {
+      const res = await axios.get("/products");
+      const data = Array.isArray(res.data) ? res.data : res.data.content || [];
+      const map = {};
+      data.forEach(p => { map[p.productId] = p; });
+      setProductMap(map);
+    } catch {}
   };
 
   const cancelOrder = async (id) => {
@@ -181,17 +204,13 @@ export default function Orders() {
   const filtered = tab === "ALL" ? orders : orders.filter(o => o.status?.toUpperCase() === tab);
   const countOf = (t) => t === "ALL" ? orders.length : orders.filter(o => o.status?.toUpperCase() === t).length;
 
-
-    const getDaysLeft = (createdAt) => {
-      const orderDate = new Date(createdAt);
-      const now = new Date();
-
-      const diffTime = now - orderDate;
-      const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-      return 5 - daysPassed;
-    };
-
+  const getDaysLeft = (createdAt) => {
+    const orderDate = new Date(createdAt);
+    const now = new Date();
+    const diffTime = now - orderDate;
+    const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return 5 - daysPassed;
+  };
 
   return (
     <div className="ib-orders">
@@ -205,7 +224,7 @@ export default function Orders() {
 
         <div className="ib-orders-tabs">
           {TABS.map(t => (
-            <button key={t} className={`ib-orders-tab${tab===t?" active":""}`} onClick={()=>setTab(t)}>
+            <button key={t} className={`ib-orders-tab${tab===t?" active":""}`} onClick={() => setTab(t)}>
               {t.replace(/_/g," ")} ({countOf(t)})
             </button>
           ))}
@@ -270,12 +289,29 @@ export default function Orders() {
                     <>
                       <div className="ib-items-title">Items</div>
                       <div className="ib-items-list">
-                        {order.items.map((item, idx) => (
-                          <div className="ib-item-row" key={idx}>
-                            <span className="ib-item-row-label">Product #{item.productId} × {item.quantity}</span>
-                            <span className="ib-item-row-val">₹{(item.price * item.quantity).toLocaleString("en-IN")}</span>
-                          </div>
-                        ))}
+                        {order.items.map((item, idx) => {
+                          const product = productMap[item.productId];
+                          return (
+                            <div className="ib-item-row" key={idx}>
+                              <span className="ib-item-row-label">
+                                <img
+                                  src={product?.imageUrl || "https://via.placeholder.com/40"}
+                                  alt={product?.productName || `Product #${item.productId}`}
+                                  className="ib-product-thumb"
+                                />
+                                <div className="ib-product-info">
+                                  <span className="ib-product-name">
+                                    {product?.productName || `Product #${item.productId}`}
+                                  </span>
+                                  <span className="ib-product-qty">Qty: {item.quantity}</span>
+                                </div>
+                              </span>
+                              <span className="ib-item-row-val">
+                                ₹{(item.price * item.quantity).toLocaleString("en-IN")}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </>
                   )}
@@ -297,15 +333,9 @@ export default function Orders() {
                       <button
                         className="ib-action-btn refund"
                         disabled={refundExpired}
-                        style={{
-                          opacity: refundExpired ? 0.5 : 1,
-                          cursor: refundExpired ? "not-allowed" : "pointer"
-                        }}
+                        style={{ opacity: refundExpired ? 0.5 : 1, cursor: refundExpired ? "not-allowed" : "pointer" }}
                         onClick={() => {
-                          if (refundExpired) {
-                            alert("Refund period expired (5 days only)");
-                            return;
-                          }
+                          if (refundExpired) { alert("Refund period expired (5 days only)"); return; }
                           requestRefund(order.orderId);
                         }}
                       >

@@ -121,8 +121,21 @@ const css = `
     box-shadow: var(--shadow-xs);
   }
   .expand-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; }
-  .item-row { display:flex; gap:2rem; font-size:0.8rem; padding:0.45rem 0; border-bottom:1px solid var(--border); font-family:'DM Mono','Fira Code',monospace; }
-  .item-row:last-child { border-bottom:none; }
+
+  /* ITEM ROW WITH PRODUCT DETAILS */
+  .item-row {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--border);
+  }
+  .item-row:last-child { border-bottom: none; }
+  .item-thumb {
+    width: 40px; height: 40px; object-fit: cover;
+    border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .item-details { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+  .item-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-meta { font-size: 0.74rem; color: var(--text-secondary); font-family: 'DM Mono', 'Fira Code', monospace; }
+  .item-total { font-family: 'DM Mono', 'Fira Code', monospace; font-size: 0.82rem; font-weight: 700; color: var(--green); white-space: nowrap; margin-left: auto; }
 
   .no-records { color: var(--text-secondary); font-size: 0.845rem; padding: 4rem; text-align: center; }
 
@@ -151,12 +164,13 @@ function Badge({ status }) {
 }
 
 export default function AdminOrders() {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("ALL");
-  const [expanded, setExpanded] = useState(null);
+  const [orders, setOrders]       = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [filter, setFilter]       = useState("ALL");
+  const [expanded, setExpanded]   = useState(null);
   const [processing, setProcessing] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [productMap, setProductMap]   = useState({});
   const itemsPerPage = 15;
 
   const load = () => {
@@ -166,7 +180,20 @@ export default function AdminOrders() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  const loadProducts = async () => {
+    try {
+      const res = await axios.get("/products");
+      const data = Array.isArray(res.data) ? res.data : res.data.content || [];
+      const map = {};
+      data.forEach(p => { map[p.productId] = p; });
+      setProductMap(map);
+    } catch {}
+  };
+
+  useEffect(() => {
+    load();
+    loadProducts();
+  }, []);
 
   const decide = async (id, approve) => {
     setProcessing(id);
@@ -174,10 +201,10 @@ export default function AdminOrders() {
     finally { setProcessing(null); }
   };
 
-  const filtered = filter === "ALL" ? orders : orders.filter(o => o.status === filter);
+  const filtered   = filter === "ALL" ? orders : orders.filter(o => o.status === filter);
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const countOf = f => f === "ALL" ? orders.length : orders.filter(o => o.status === f).length;
+  const paginated  = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const countOf    = f => f === "ALL" ? orders.length : orders.filter(o => o.status === f).length;
 
   return (
     <div className="orders-page">
@@ -215,9 +242,9 @@ export default function AdminOrders() {
               </thead>
               <tbody>
                 {paginated.map(o => {
-                  const isCR = o.status === "CANCEL_REQUESTED";
-                  const busy = processing === o.orderId;
-                  const open = expanded === o.orderId;
+                  const isCR  = o.status === "CANCEL_REQUESTED";
+                  const busy  = processing === o.orderId;
+                  const open  = expanded === o.orderId;
                   return (
                     <>
                       <tr key={o.orderId}>
@@ -240,21 +267,39 @@ export default function AdminOrders() {
                           ) : <span style={{ color:"var(--text-muted)", fontSize:"0.8rem" }}>—</span>}
                         </td>
                       </tr>
+
                       {open && (
                         <tr key={`${o.orderId}-exp`} className="expand-row">
                           <td colSpan={7}>
                             <div className="expand-inner">
                               <div className="expand-label">Order Items</div>
-                              {o.items?.map((item, i) => (
-                                <div key={i} className="item-row">
-                                  <span style={{ color:"var(--accent)" }}>Product #{item.productId}</span>
-                                  <span style={{ color:"var(--text-secondary)" }}>Qty: {item.quantity}</span>
-                                  <span style={{ color:"var(--text-secondary)" }}>Unit: ₹{item.price?.toLocaleString("en-IN")}</span>
-                                  <span style={{ marginLeft:"auto", color:"var(--green)", fontWeight:700 }}>₹{(item.price * item.quantity).toLocaleString("en-IN")}</span>
-                                </div>
-                              ))}
+                              {o.items?.map((item, i) => {
+                                const product = productMap[item.productId];
+                                return (
+                                  <div key={i} className="item-row">
+                                    <img
+                                      src={product?.imageUrl || "https://via.placeholder.com/40"}
+                                      alt={product?.productName || `Product #${item.productId}`}
+                                      className="item-thumb"
+                                    />
+                                    <div className="item-details">
+                                      <span className="item-name">
+                                        {product?.productName || `Product #${item.productId}`}
+                                      </span>
+                                      <span className="item-meta">
+                                        Qty: {item.quantity} · Unit: ₹{item.price?.toLocaleString("en-IN")}
+                                      </span>
+                                    </div>
+                                    <span className="item-total">
+                                      ₹{(item.price * item.quantity).toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                               {o.failureReason && (
-                                <div style={{ color:"var(--red)", marginTop:"0.625rem", fontSize:"0.78rem", padding:"0.5rem", background:"var(--red-bg)", borderRadius:"6px", border:"1px solid var(--red-border)" }}>⚠ {o.failureReason}</div>
+                                <div style={{ color:"var(--red)", marginTop:"0.625rem", fontSize:"0.78rem", padding:"0.5rem", background:"var(--red-bg)", borderRadius:"6px", border:"1px solid var(--red-border)" }}>
+                                  ⚠ {o.failureReason}
+                                </div>
                               )}
                             </div>
                           </td>
@@ -266,6 +311,7 @@ export default function AdminOrders() {
               </tbody>
             </table>
           </div>
+
           {totalPages > 1 && (
             <div className="pagination">
               <button className="page-btn" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}>‹</button>

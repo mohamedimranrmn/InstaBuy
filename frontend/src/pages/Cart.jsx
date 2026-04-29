@@ -1,12 +1,12 @@
-    import { useState } from "react";
+import { useState } from "react";
     import axios from "../api/axios";
     import { useCart } from "../context/CartContext";
     import { Link } from "react-router-dom";
 
     const styles = `
       @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
-      .ib-cart * { box-sizing: border-box; }
-      .ib-cart { font-family: 'DM Sans', sans-serif; background: #f8f7f4; min-height: 100vh; padding: 3rem 2rem; }
+      .ib-cartimg * { box-sizing: border-box; }
+      .ib-cartimg { font-family: 'DM Sans', sans-serif; background: #f8f7f4; min-height: 100vh; padding: 3rem 2rem; }
       .ib-cart-inner { max-width: 1100px; margin: 0 auto; }
 
       .ib-cart-header { margin-bottom: 2rem; }
@@ -26,7 +26,7 @@
       .ib-cart-item:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.07); }
       .ib-cart-item-img {
         width: 90px; height: 90px; border-radius: 12px; object-fit: cover;
-        flex-shrink: 0;
+        flex-shrink: 0; background: #f4f3f0;
       }
       .ib-cart-item-info { flex: 1; min-width: 0; }
       .ib-cart-item-name { font-weight: 700; color: #0f1c35; font-size: 1rem; margin-bottom: 0.3rem; }
@@ -106,6 +106,8 @@
       }
     `;
 
+    const FALLBACK = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&h=200&fit=crop";
+
     function loadRazorpayScript() {
       return new Promise(resolve => {
         if (window.Razorpay) { resolve(true); return; }
@@ -125,7 +127,7 @@
         if (cart.length === 0) return;
         setLoading(true);
         try {
-          const payload = { items: cart.map(i => ({ productId: i.id, quantity: i.qty })) };
+          const payload = { items: cart.map(i => ({ productId: i.productId, quantity: i.qty })) };
           const orderRes = await axios.post("/orders", payload);
           const order = orderRes.data;
           if (order.status === "FAILED") { alert(order.failureReason || "Order failed."); return; }
@@ -172,7 +174,7 @@
       };
 
       return (
-        <div className="ib-cart">
+        <div className="ib-cartimg">
           <style>{styles}</style>
           <div className="ib-cart-inner">
             <div className="ib-cart-header">
@@ -192,24 +194,24 @@
               <div className="ib-cart-layout">
                 <div className="ib-cart-items">
                   {cart.map(item => (
-                    <div className="ib-cart-item" key={item.id}>
+                    <div className="ib-cart-item" key={item.productId}>
                       <img
                         className="ib-cart-item-img"
-                        src={`https://picsum.photos/seed/${item.id}/200/200`}
-                        alt={item.name}
-                        onError={e => { e.target.onerror=null; e.target.src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&h=200&fit=crop"; }}
+                        src={item.imageUrl || `https://picsum.photos/seed/${item.productId}/200/200`}
+                        alt={item.productName}
+                        onError={e => { e.target.onerror = null; e.target.src = FALLBACK; }}
                       />
                       <div className="ib-cart-item-info">
-                        <div className="ib-cart-item-name">{item.name}</div>
+                        <div className="ib-cart-item-name">{item.productName}</div>
                         <div className="ib-cart-item-price">₹{item.price?.toLocaleString("en-IN")}</div>
                         <div className="ib-cart-item-controls">
-                          <button className="ib-qty-btn" onClick={() => decreaseQty(item.id)}>−</button>
+                          <button className="ib-qty-btn" onClick={() => decreaseQty(item.productId)}>−</button>
                           <span className="ib-qty-val">{item.qty}</span>
-                          <button className="ib-qty-btn" onClick={() => increaseQty(item.id)}>+</button>
+                          <button className="ib-qty-btn" onClick={() => increaseQty(item.productId)}>+</button>
                         </div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.5rem"}}>
-                        <button className="ib-remove-btn" onClick={() => removeItem(item.id)} title="Remove">✕</button>
+                        <button className="ib-remove-btn" onClick={() => removeItem(item.productId)} title="Remove">✕</button>
                         <div className="ib-item-subtotal">₹{(item.price * item.qty).toLocaleString("en-IN")}</div>
                       </div>
                     </div>

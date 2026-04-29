@@ -274,17 +274,23 @@ function Modal({ onClose, children }) {
 
 /* ── Add Product Modal ── */
 function AddModal({ onClose, onSave }) {
-  const [name, setName]   = useState("");
-  const [price, setPrice] = useState("");
-  const [qty, setQty]     = useState("");
-  const [busy, setBusy]   = useState(false);
+  const [name, setName]         = useState("");
+  const [price, setPrice]       = useState("");
+  const [qty, setQty]           = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [busy, setBusy]         = useState(false);
 
   const valid = name.trim() && Number(price) > 0 && qty !== "" && Number(qty) >= 0;
 
   const handleSave = async () => {
     if (!valid) return;
     setBusy(true);
-    await onSave({ productName: name.trim(), price: parseFloat(price), availableQuantity: parseInt(qty) });
+    await onSave({
+      productName: name.trim(),
+      price: parseFloat(price),
+      availableQuantity: parseInt(qty),
+      imageUrl,
+    });
     setBusy(false);
     onClose();
   };
@@ -338,6 +344,15 @@ function AddModal({ onClose, onSave }) {
             />
           </div>
         </div>
+        <div className="modal-field">
+          <label className="modal-label">Product Image URL</label>
+          <input
+            className="modal-input"
+            value={imageUrl}
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="Paste image URL (Supabase / CDN)"
+          />
+        </div>
       </div>
 
       <div className="modal-footer">
@@ -352,17 +367,23 @@ function AddModal({ onClose, onSave }) {
 
 /* ── Edit Product Modal ── */
 function EditModal({ product, onClose, onSave }) {
-  const [name, setName]   = useState(product.productName);
-  const [price, setPrice] = useState(product.price);
-  const [qty, setQty]     = useState(product.availableQuantity);
-  const [busy, setBusy]   = useState(false);
+  const [name, setName]         = useState(product.productName);
+  const [price, setPrice]       = useState(product.price);
+  const [qty, setQty]           = useState(product.availableQuantity);
+  const [imageUrl, setImageUrl] = useState(product.imageUrl || "");
+  const [busy, setBusy]         = useState(false);
 
   const valid = name.trim() && Number(price) > 0 && Number(qty) >= 0;
 
   const handleSave = async () => {
     if (!valid) return;
     setBusy(true);
-    await onSave(product.productId, { productName: name.trim(), price: Number(price), availableQuantity: Number(qty) });
+    await onSave(product.productId, {
+      productName: name.trim(),
+      price: Number(price),
+      availableQuantity: Number(qty),
+      imageUrl,
+    });
     setBusy(false);
     onClose();
   };
@@ -394,6 +415,15 @@ function EditModal({ product, onClose, onSave }) {
             <label className="modal-label">Stock Quantity</label>
             <input className="modal-input" type="number" min="0" value={qty} onChange={e => setQty(e.target.value)} placeholder="0" />
           </div>
+        </div>
+        <div className="modal-field">
+          <label className="modal-label">Product Image URL</label>
+          <input
+            className="modal-input"
+            value={imageUrl}
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="Update image URL"
+          />
         </div>
       </div>
 
@@ -709,7 +739,23 @@ export default function AdminProducts() {
                 {paginated.map(p => (
                   <tr key={p.productId} className={p.deleted ? "row-deleted" : ""}>
                     <td><span className="mono id-accent">#{p.productId}</span></td>
-                    <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{p.productName}</td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <img
+                          src={p.imageUrl || "https://via.placeholder.com/40"}
+                          alt={p.productName}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            objectFit: "cover",
+                            borderRadius: 6,
+                            border: "1px solid #ddd",
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{p.productName}</span>
+                      </div>
+                    </td>
                     <td><span className="mono price-green">₹{p.price?.toLocaleString("en-IN")}</span></td>
                     <td><span className="mono">{p.availableQuantity}</span></td>
                     <td>

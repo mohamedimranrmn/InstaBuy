@@ -62,21 +62,38 @@ const styles = `
   .ib-auth-link a { color: #1b2a4a; font-weight: 700; text-decoration: none; }
   .ib-auth-link a:hover { color: #f0a500; }
 
-  .ib-auth-error { background: #fff2f2; border: 1px solid #fcc; color: #c0392b; padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; margin-bottom: 1rem; }
+  .ib-auth-error {
+    padding: 0.75rem 1rem; border-radius: 10px;
+    font-size: 0.85rem; font-weight: 600; margin-bottom: 1rem;
+  }
+  .ib-auth-error.red   { background: #fff2f2; border: 1px solid #fcc;    color: #c0392b; }
+  .ib-auth-error.amber { background: #fffbf0; border: 1px solid #fce4a0; color: #8a6000; }
 `;
 
 function parseJwt(token) {
   try { return JSON.parse(atob(token.split(".")[1])); } catch { return null; }
 }
 
+function isDeactivated(msg) {
+  if (!msg) return false;
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("deactivated") ||
+    lower.includes("disabled")    ||
+    lower.includes("contact admin")
+  );
+}
+
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [email, setEmail]             = useState("");
+  const [password, setPassword]       = useState("");
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState("");
+  const [deactivated, setDeactivated] = useState(false);
 
   const handleLogin = async () => {
     setError("");
+    setDeactivated(false);
     setLoading(true);
 
     try {
@@ -92,10 +109,17 @@ export default function Login() {
       window.location.href = role === "ADMIN" ? "/admin" : "/products";
 
     } catch (err) {
-      const msg = err.response?.data?.message || "";
+      const data = err.response?.data;
 
-      if (msg.includes("ACCOUNT_DISABLED")) {
-        setError("Your account is disabled. Contact admin.");
+      // covers { message: "..." }, { error: "..." }, or a plain string body
+      const msg =
+        data?.message ||
+        data?.error   ||
+        (typeof data === "string" ? data : "");
+
+      if (isDeactivated(msg)) {
+        setDeactivated(true);
+        setError("Your account has been deactivated. Please contact the admin to restore access.");
       } else {
         setError("Invalid email or password. Please try again.");
       }
@@ -117,15 +141,21 @@ export default function Login() {
         <h1 className="ib-auth-title">Welcome back</h1>
         <p className="ib-auth-sub">Sign in to your account to continue shopping</p>
 
-        {error && <div className="ib-auth-error">⚠ {error}</div>}
+        {error && (
+          <div className={`ib-auth-error ${deactivated ? "amber" : "red"}`}>
+            {deactivated ? "🔒" : "⚠"} {error}
+          </div>
+        )}
 
         <div className="ib-field">
           <label>Email Address</label>
-          <input type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={handleKey} />
+          <input type="email" placeholder="you@example.com" value={email}
+            onChange={e => setEmail(e.target.value)} onKeyDown={handleKey} />
         </div>
         <div className="ib-field">
           <label>Password</label>
-          <input type="password" placeholder="Enter your password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={handleKey} />
+          <input type="password" placeholder="Enter your password" value={password}
+            onChange={e => setPassword(e.target.value)} onKeyDown={handleKey} />
         </div>
 
         <button className="ib-auth-btn" onClick={handleLogin} disabled={loading}>
