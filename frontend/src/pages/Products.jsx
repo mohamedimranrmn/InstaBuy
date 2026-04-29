@@ -147,8 +147,8 @@ export default function Products() {
     if (p.deleted || p.availableQuantity <= 0) return;
 
     addToCart({
-      id: p.productId,
-      name: p.productName,
+      productId: p.productId,
+      productName: p.productName,
       price: p.price,
       imageUrl: p.imageUrl
     });
