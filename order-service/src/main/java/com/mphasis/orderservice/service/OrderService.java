@@ -248,6 +248,7 @@ public class OrderService {
 
             try {
                 paymentClient.refund(orderId);
+                rollbackInventory(order.getItems());
                 transition(order, OrderStatus.REFUNDED);
                 logClient.sendLog(new ActivityLog(
                         "order-service",
